@@ -1,6 +1,7 @@
 plugins {
 	java
     pmd
+    jacoco
     id("org.springframework.boot") version "3.5.15"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -37,5 +38,16 @@ pmd {
 }
 
 tasks.withType<Test> {
+    finalizedBy(tasks.jacocoTestReport)
+
 	useJUnitPlatform()
+}
+
+tasks.withType<JacocoReport> {
+	reports {
+        html.required.set(true)
+		xml.required.set(true)
+		csv.required.set(false)
+		html.outputLocation.set(layout.buildDirectory.dir("jacocoHtml"))
+	}
 }
