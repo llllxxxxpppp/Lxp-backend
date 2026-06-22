@@ -1,12 +1,16 @@
-package com.lcs.lxp.course.model;
+package com.lcs.lxp.course.model.entity;
 
 import com.lcs.lxp.course.exception.CourseException;
+import com.lcs.lxp.course.model.vo.ContentStatus;
+import com.lcs.lxp.course.model.vo.InstructorId;
+import com.lcs.lxp.course.model.vo.Title;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,7 +36,7 @@ class CourseTest {
     @DisplayName("강좌 생성 시 삭제 상태가 아니다")
     void givenInstructor_whenCreateCourse_thenNotDeleted() {
         Course course = Course.create(instructorId, title);
-        assertTrue(!course.isDeleted());
+        assertFalse(course.isDeleted());
     }
 
     @Test

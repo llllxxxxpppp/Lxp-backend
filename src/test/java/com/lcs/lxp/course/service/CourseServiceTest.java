@@ -1,10 +1,10 @@
 package com.lcs.lxp.course.service;
 
 import com.lcs.lxp.course.exception.CourseException;
-import com.lcs.lxp.course.model.ContentStatus;
-import com.lcs.lxp.course.model.Course;
-import com.lcs.lxp.course.model.InstructorId;
-import com.lcs.lxp.course.model.Title;
+import com.lcs.lxp.course.model.entity.Course;
+import com.lcs.lxp.course.model.vo.ContentStatus;
+import com.lcs.lxp.course.model.vo.InstructorId;
+import com.lcs.lxp.course.model.vo.Title;
 import com.lcs.lxp.course.repository.CourseRepository;
 import com.lcs.lxp.member.model.MemberRole;
 import org.junit.jupiter.api.AfterEach;

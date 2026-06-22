@@ -1,6 +1,9 @@
-package com.lcs.lxp.course.model;
+package com.lcs.lxp.course.model.entity;
 
 import com.lcs.lxp.course.exception.CourseException;
+import com.lcs.lxp.course.model.vo.ContentStatus;
+import com.lcs.lxp.course.model.vo.MissionId;
+import com.lcs.lxp.course.model.vo.Title;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -15,8 +18,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "lectures")
-public class Lecture {
+@Table(name = "missions")
+public class Mission {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,20 +37,20 @@ public class Lecture {
     private ContentStatus status;
 
     @Column(nullable = false)
-    private boolean deleted = false;
+    private boolean deleted;
 
-    protected Lecture() {}
+    protected Mission() {}
 
-    static Lecture create(Course course, Title title) {
-        Lecture lecture = new Lecture();
-        lecture.course = course;
-        lecture.title = title;
-        lecture.status = ContentStatus.PRIVATE;
-        return lecture;
+    static Mission create(Course course, Title title) {
+        Mission mission = new Mission();
+        mission.course = course;
+        mission.title = title;
+        mission.status = ContentStatus.PRIVATE;
+        return mission;
     }
 
-    public LectureId getId() {
-        return new LectureId(id);
+    public MissionId getId() {
+        return new MissionId(id);
     }
 
     public ContentStatus getStatus() {
@@ -64,7 +67,7 @@ public class Lecture {
 
     public void update(Title newTitle) {
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
-            throw new CourseException("공개 상태에서는 강의를 수정할 수 없습니다.");
+            throw new CourseException("공개 상태에서는 미션을 수정할 수 없습니다.");
         }
         this.title = newTitle;
     }

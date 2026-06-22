@@ -1,6 +1,10 @@
-package com.lcs.lxp.course.model;
+package com.lcs.lxp.course.model.entity;
 
 import com.lcs.lxp.course.exception.CourseException;
+import com.lcs.lxp.course.model.vo.ContentStatus;
+import com.lcs.lxp.course.model.vo.CourseId;
+import com.lcs.lxp.course.model.vo.InstructorId;
+import com.lcs.lxp.course.model.vo.Title;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
@@ -40,7 +44,7 @@ public class Course {
     private List<Mission> missions = new ArrayList<>();
 
     @Column(nullable = false)
-    private boolean deleted = false;
+    private boolean deleted;
 
     protected Course() {}
 

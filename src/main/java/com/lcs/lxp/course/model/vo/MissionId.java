@@ -1,4 +1,4 @@
-package com.lcs.lxp.course.model;
+package com.lcs.lxp.course.model.vo;
 
 import java.util.Objects;
 
