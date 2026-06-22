@@ -25,3 +25,18 @@
 - 비공개(unpublish) 처리는 soft delete와 동일 (deleted = true)
 
 **테스트 현황**: TitleTest(6), CourseTest(12), LectureTest(8), MissionTest(8) — 전체 통과
+
+### 강좌 서비스 (2026-06-22)
+
+**구현 내용**
+- `member/model/MemberRole` — 회원 유형 enum (MEMBER, INSTRUCTOR, ADMIN)
+- `course/service/CourseService` — 강좌 애플리케이션 서비스
+
+**핵심 역할**
+- `createCourse`: 강사만 강좌를 생성할 수 있음, 생성 후 저장
+- `updateCourse`: 강좌 제목 수정 (공개 상태 체크는 도메인 위임)
+- `publishCourse`: 강사만 강좌를 공개할 수 있음
+- `unpublishCourse`: 강사 또는 어드민만 강좌를 비공개할 수 있음
+- 역할 조건 불충족 또는 강좌 미존재 시 `CourseException` 발생
+
+**테스트 현황**: CourseServiceTest(14) — 전체 통과
