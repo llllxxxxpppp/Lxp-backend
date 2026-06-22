@@ -26,6 +26,31 @@
 
 **테스트 현황**: TitleTest(6), CourseTest(12), LectureTest(8), MissionTest(8) — 전체 통과
 
+### 강좌 컨트롤러 (2026-06-23)
+
+**구현 내용**
+- `course/dto/request/CreateCourseRequest` — 강좌 생성 요청 DTO (record)
+- `course/dto/request/UpdateCourseRequest` — 강좌 수정 요청 DTO (record)
+- `course/dto/response/ErrorResponse` — 에러 응답 DTO (record)
+- `course/controller/CourseController` — 강좌 REST 컨트롤러 (`@RestController`)
+- `course/exception/CourseExceptionHandler` — `CourseException` → 400 Bad Request 매핑
+
+**엔드포인트**
+- `POST /api/courses` — 강좌 생성 (201), instructorId는 `Authentication.getName()` 에서 추출
+- `PATCH /api/courses/{courseId}` — 강좌 제목 수정 (200)
+- `POST /api/courses/{courseId}/publish` — 강좌 공개 (200)
+- `POST /api/courses/{courseId}/unpublish` — 강좌 비공개 (200)
+- `GET /api/courses/{courseId}` — 강좌 요약 조회 (200): 강좌 기본 정보만 반환 (강의·미션 제외)
+- `GET /api/courses/{courseId}/detail` — 강좌 상세 조회 (200): 강의·미션 목록 포함
+
+**응답 DTO**
+- `CourseSummaryResponse` — courseId, instructorId, title, status
+- `CourseDetailResponse` — CourseSummaryResponse + lectures(`LectureResponse`), missions(`MissionResponse`)
+- `LectureResponse` — lectureId, title, status
+- `MissionResponse` — missionId, title, status
+
+**테스트 현황**: CourseControllerTest(12) — 전체 통과
+
 ### 강좌 서비스 (2026-06-22)
 
 **구현 내용**
@@ -39,4 +64,4 @@
 - `unpublishCourse`: 강사 또는 어드민만 강좌를 비공개할 수 있음
 - 역할 조건 불충족 또는 강좌 미존재 시 `CourseException` 발생
 
-**테스트 현황**: CourseServiceTest(14) — 전체 통과
+**테스트 현황**: CourseServiceTest(18) — 전체 통과

@@ -1,5 +1,7 @@
 package com.lcs.lxp.course.service;
 
+import com.lcs.lxp.course.dto.response.CourseDetailResponse;
+import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.entity.Course;
 import com.lcs.lxp.course.model.vo.ContentStatus;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -62,6 +65,64 @@ class CourseServiceTest {
         var authority = new SimpleGrantedAuthority("ROLE_" + role.name());
         var auth = new UsernamePasswordAuthenticationToken("user", null, List.of(authority));
         SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    // --- getCourseSummary ---
+
+    @Test
+    @DisplayName("강좌 요약 정보를 조회하면 강좌 기본 정보를 반환한다")
+    void givenExistingCourse_whenGetCourseSummary_thenReturnsSummary() {
+        Course course = Course.create(new InstructorId(1L), new Title("강좌 제목"));
+        ReflectionTestUtils.setField(course, "id", 1L);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+
+        CourseSummaryResponse summary = courseService.getCourseSummary(1L);
+
+        assertEquals(1L, summary.courseId());
+        assertEquals(1L, summary.instructorId());
+        assertEquals("강좌 제목", summary.title());
+        assertEquals(ContentStatus.PRIVATE.name(), summary.status());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌 요약 조회 시 예외가 발생한다")
+    void givenNonExistentCourse_whenGetCourseSummary_thenThrowsException() {
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.getCourseSummary(999L));
+    }
+
+    // --- getCourseDetail ---
+
+    @Test
+    @DisplayName("강좌 상세 정보를 조회하면 강의와 미션을 포함한 정보를 반환한다")
+    void givenExistingCourseWithLecturesAndMissions_whenGetCourseDetail_thenReturnsDetail() {
+        Course course = Course.create(new InstructorId(1L), new Title("강좌 제목"));
+        ReflectionTestUtils.setField(course, "id", 1L);
+        ReflectionTestUtils.setField(course.addLecture(new Title("강의 제목")), "id", 10L);
+        ReflectionTestUtils.setField(course.addMission(new Title("미션 제목")), "id", 20L);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+
+        CourseDetailResponse detail = courseService.getCourseDetail(1L);
+
+        assertEquals(1L, detail.courseId());
+        assertEquals(1L, detail.instructorId());
+        assertEquals("강좌 제목", detail.title());
+        assertEquals(ContentStatus.PRIVATE.name(), detail.status());
+        assertEquals(1, detail.lectures().size());
+        assertEquals(10L, detail.lectures().get(0).lectureId());
+        assertEquals("강의 제목", detail.lectures().get(0).title());
+        assertEquals(1, detail.missions().size());
+        assertEquals(20L, detail.missions().get(0).missionId());
+        assertEquals("미션 제목", detail.missions().get(0).title());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌 상세 조회 시 예외가 발생한다")
+    void givenNonExistentCourse_whenGetCourseDetail_thenThrowsException() {
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.getCourseDetail(999L));
     }
 
     // --- createCourse ---

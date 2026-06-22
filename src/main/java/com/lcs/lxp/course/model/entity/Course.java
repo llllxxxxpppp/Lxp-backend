@@ -60,6 +60,10 @@ public class Course {
         return new CourseId(id);
     }
 
+    public InstructorId getInstructorId() {
+        return new InstructorId(instructorId);
+    }
+
     public ContentStatus getStatus() {
         return status;
     }

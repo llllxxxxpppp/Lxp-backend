@@ -1,5 +1,7 @@
 package com.lcs.lxp.course.service;
 
+import com.lcs.lxp.course.dto.response.CourseDetailResponse;
+import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.entity.Course;
 import com.lcs.lxp.course.model.vo.InstructorId;
@@ -19,6 +21,16 @@ public class CourseService {
 
     public CourseService(CourseRepository courseRepository) {
         this.courseRepository = courseRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public CourseSummaryResponse getCourseSummary(Long courseId) {
+        return CourseSummaryResponse.from(getCourse(courseId));
+    }
+
+    @Transactional(readOnly = true)
+    public CourseDetailResponse getCourseDetail(Long courseId) {
+        return CourseDetailResponse.from(getCourse(courseId));
     }
 
     public void createCourse(Long instructorId, String title) {
