@@ -1,6 +1,7 @@
 plugins {
 	java
-	id("org.springframework.boot") version "3.5.15"
+    pmd
+    id("org.springframework.boot") version "3.5.15"
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -25,6 +26,14 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.security:spring-security-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+pmd {
+    isIgnoreFailures = false
+    toolVersion = "7.25.0"
+
+    ruleSetFiles = files("$rootDir/config/pmd/rules.xml")
+    ruleSets = emptyList()
 }
 
 tasks.withType<Test> {
