@@ -117,11 +117,11 @@ public class Course {
         return lecture;
     }
 
-    public Mission addMission(Title missionTitle) {
+    public Mission addMission(Title missionTitle, String content) {
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 미션을 추가할 수 없습니다.");
         }
-        Mission mission = Mission.create(this, missionTitle);
+        Mission mission = Mission.create(this, missionTitle, content);
         missions.add(mission);
         return mission;
     }

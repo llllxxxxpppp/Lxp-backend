@@ -51,7 +51,7 @@ class CourseTest {
     void givenPublicCourse_whenUpdate_thenThrowsException() {
         Course course = Course.create(instructorId, title);
         course.addLecture(new Title("강의"));
-        course.addMission(new Title("미션"));
+        course.addMission(new Title("미션"), "문제 내용");
         course.publish();
 
         assertThrows(CourseException.class, () -> course.update(new Title("수정된 제목")));
@@ -76,7 +76,7 @@ class CourseTest {
     @DisplayName("미션만 있고 강의가 없으면 공개할 수 없다")
     void givenCourseWithMissionOnly_whenPublish_thenThrowsException() {
         Course course = Course.create(instructorId, title);
-        course.addMission(new Title("미션"));
+        course.addMission(new Title("미션"), "문제 내용");
         assertThrows(CourseException.class, course::publish);
     }
 
@@ -85,7 +85,7 @@ class CourseTest {
     void givenCourseWithLectureAndMission_whenPublish_thenStatusIsPublic() {
         Course course = Course.create(instructorId, title);
         course.addLecture(new Title("강의"));
-        course.addMission(new Title("미션"));
+        course.addMission(new Title("미션"), "문제 내용");
         assertDoesNotThrow(course::publish);
         assertEquals(ContentStatus.PUBLIC, course.getStatus());
     }
@@ -95,7 +95,7 @@ class CourseTest {
     void givenPublicCourse_whenUnpublish_thenStatusIsPrivateAndDeleted() {
         Course course = Course.create(instructorId, title);
         course.addLecture(new Title("강의"));
-        course.addMission(new Title("미션"));
+        course.addMission(new Title("미션"), "문제 내용");
         course.publish();
         course.unpublish();
 
@@ -108,7 +108,7 @@ class CourseTest {
     void givenPublicCourse_whenAddLecture_thenThrowsException() {
         Course course = Course.create(instructorId, title);
         course.addLecture(new Title("강의"));
-        course.addMission(new Title("미션"));
+        course.addMission(new Title("미션"), "문제 내용");
         course.publish();
 
         assertThrows(CourseException.class, () -> course.addLecture(new Title("강의2")));
@@ -119,10 +119,10 @@ class CourseTest {
     void givenPublicCourse_whenAddMission_thenThrowsException() {
         Course course = Course.create(instructorId, title);
         course.addLecture(new Title("강의"));
-        course.addMission(new Title("미션"));
+        course.addMission(new Title("미션"), "문제 내용");
         course.publish();
 
-        assertThrows(CourseException.class, () -> course.addMission(new Title("미션2")));
+        assertThrows(CourseException.class, () -> course.addMission(new Title("미션2"), "문제 내용"));
     }
 
     @Test
@@ -130,7 +130,7 @@ class CourseTest {
     void givenCourseWithOnlyDeletedLecture_whenPublish_thenThrowsException() {
         Course course = Course.create(instructorId, title);
         Lecture lecture = course.addLecture(new Title("강의"));
-        course.addMission(new Title("미션"));
+        course.addMission(new Title("미션"), "문제 내용");
         lecture.unpublish();
 
         assertThrows(CourseException.class, course::publish);
@@ -141,7 +141,7 @@ class CourseTest {
     void givenCourseWithOnlyDeletedMission_whenPublish_thenThrowsException() {
         Course course = Course.create(instructorId, title);
         course.addLecture(new Title("강의"));
-        Mission mission = course.addMission(new Title("미션"));
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
         mission.unpublish();
 
         assertThrows(CourseException.class, course::publish);
