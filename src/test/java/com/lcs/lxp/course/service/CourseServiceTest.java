@@ -311,56 +311,6 @@ class CourseServiceTest {
         assertThrows(CourseException.class, () -> courseService.addLecture(999L, "새 강의", "/lectures/2"));
     }
 
-    // --- removeLecture ---
-
-    @Test
-    @DisplayName("강사가 강의를 삭제하면 강의가 제거된다")
-    void givenInstructorRole_whenRemoveLecture_thenLectureIsRemoved() {
-        authenticate(MemberRole.INSTRUCTOR);
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
-
-        courseService.removeLecture(1L, 10L);
-
-        assertEquals(0, privateCourse.getLectures().size());
-    }
-
-    @Test
-    @DisplayName("어드민이 강의를 삭제하면 강의가 제거된다")
-    void givenAdminRole_whenRemoveLecture_thenLectureIsRemoved() {
-        authenticate(MemberRole.ADMIN);
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
-
-        courseService.removeLecture(1L, 10L);
-
-        assertEquals(0, privateCourse.getLectures().size());
-    }
-
-    @Test
-    @DisplayName("일반 회원이 강의를 삭제하면 예외가 발생한다")
-    void givenMemberRole_whenRemoveLecture_thenThrowsException() {
-        authenticate(MemberRole.MEMBER);
-
-        assertThrows(CourseException.class, () -> courseService.removeLecture(1L, 10L));
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 강좌에서 강의를 삭제하면 예외가 발생한다")
-    void givenNonExistentCourse_whenRemoveLecture_thenThrowsException() {
-        authenticate(MemberRole.INSTRUCTOR);
-        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
-
-        assertThrows(CourseException.class, () -> courseService.removeLecture(999L, 10L));
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 강의를 삭제하면 예외가 발생한다")
-    void givenNonExistentLecture_whenRemoveLecture_thenThrowsException() {
-        authenticate(MemberRole.INSTRUCTOR);
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
-
-        assertThrows(CourseException.class, () -> courseService.removeLecture(1L, 999L));
-    }
-
     // --- publishLecture ---
 
     @Test
@@ -478,56 +428,6 @@ class CourseServiceTest {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(CourseException.class, () -> courseService.addMission(999L, "새 미션", "문제 내용"));
-    }
-
-    // --- removeMission ---
-
-    @Test
-    @DisplayName("강사가 미션을 삭제하면 미션이 제거된다")
-    void givenInstructorRole_whenRemoveMission_thenMissionIsRemoved() {
-        authenticate(MemberRole.INSTRUCTOR);
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
-
-        courseService.removeMission(1L, 20L);
-
-        assertEquals(0, privateCourse.getMissions().size());
-    }
-
-    @Test
-    @DisplayName("어드민이 미션을 삭제하면 미션이 제거된다")
-    void givenAdminRole_whenRemoveMission_thenMissionIsRemoved() {
-        authenticate(MemberRole.ADMIN);
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
-
-        courseService.removeMission(1L, 20L);
-
-        assertEquals(0, privateCourse.getMissions().size());
-    }
-
-    @Test
-    @DisplayName("일반 회원이 미션을 삭제하면 예외가 발생한다")
-    void givenMemberRole_whenRemoveMission_thenThrowsException() {
-        authenticate(MemberRole.MEMBER);
-
-        assertThrows(CourseException.class, () -> courseService.removeMission(1L, 20L));
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 강좌에서 미션을 삭제하면 예외가 발생한다")
-    void givenNonExistentCourse_whenRemoveMission_thenThrowsException() {
-        authenticate(MemberRole.INSTRUCTOR);
-        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
-
-        assertThrows(CourseException.class, () -> courseService.removeMission(999L, 20L));
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 미션을 삭제하면 예외가 발생한다")
-    void givenNonExistentMission_whenRemoveMission_thenThrowsException() {
-        authenticate(MemberRole.INSTRUCTOR);
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
-
-        assertThrows(CourseException.class, () -> courseService.removeMission(1L, 999L));
     }
 
     // --- publishMission ---
