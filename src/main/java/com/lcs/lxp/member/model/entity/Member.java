@@ -2,23 +2,25 @@ package com.lcs.lxp.member.model.entity;
 
 import com.lcs.lxp.member.exception.MemberException;
 import com.lcs.lxp.member.model.MemberRole;
-import com.lcs.lxp.member.model.vo.InstructorProfile;
 import com.lcs.lxp.member.model.vo.MemberId;
 import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
+import jakarta.persistence.DiscriminatorColumn;
+import jakarta.persistence.DiscriminatorType;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Inheritance;
+import jakarta.persistence.InheritanceType;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.regex.Pattern;
 
 @Entity
 @Table(name = "members")
-public class Member {
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@DiscriminatorColumn(name = "role", discriminatorType = DiscriminatorType.STRING)
+public abstract class Member {
 
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[\\w._%+\\-]+@[\\w.\\-]+\\.[A-Za-z]{2,}$");
@@ -33,13 +35,6 @@ public class Member {
     @Column(nullable = false)
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private MemberRole role;
-
-    @Embedded
-    private InstructorProfile profile;
-
     @Column(nullable = false)
     private boolean deleted;
 
@@ -51,43 +46,16 @@ public class Member {
 
     protected Member() {}
 
-    public static Member createMember(String email, String encodedPassword) {
+    protected Member(String email, String encodedPassword) {
         validateEmail(email);
         validatePassword(encodedPassword);
-        Member member = new Member();
-        member.email = email;
-        member.password = encodedPassword;
-        member.role = MemberRole.MEMBER;
-        member.deleted = false;
-        member.createdAt = OffsetDateTime.now();
-        return member;
+        this.email = email;
+        this.password = encodedPassword;
+        this.deleted = false;
+        this.createdAt = OffsetDateTime.now();
     }
 
-    public static Member createInstructor(String email, String encodedPassword,
-            String name, String profileImageUrl, String introduction) {
-        validateEmail(email);
-        validatePassword(encodedPassword);
-        Member member = new Member();
-        member.email = email;
-        member.password = encodedPassword;
-        member.role = MemberRole.INSTRUCTOR;
-        member.profile = InstructorProfile.of(name, profileImageUrl, introduction);
-        member.deleted = false;
-        member.createdAt = OffsetDateTime.now();
-        return member;
-    }
-
-    public static Member createAdmin(String email, String encodedPassword) {
-        validateEmail(email);
-        validatePassword(encodedPassword);
-        Member member = new Member();
-        member.email = email;
-        member.password = encodedPassword;
-        member.role = MemberRole.ADMIN;
-        member.deleted = false;
-        member.createdAt = OffsetDateTime.now();
-        return member;
-    }
+    public abstract MemberRole getRole();
 
     public MemberId getId() {
         return new MemberId(id);
@@ -99,14 +67,6 @@ public class Member {
 
     public String getPassword() {
         return password;
-    }
-
-    public MemberRole getRole() {
-        return role;
-    }
-
-    public InstructorProfile getProfile() {
-        return profile;
     }
 
     public boolean isDeleted() {
@@ -133,21 +93,12 @@ public class Member {
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public void updateProfile(String name, String profileImageUrl, String introduction) {
-        if (role != MemberRole.INSTRUCTOR) {
-            throw new MemberException("강사만 프로필을 수정할 수 있습니다.");
-        }
-        this.profile = InstructorProfile.of(name, profileImageUrl, introduction);
-        this.updatedAt = OffsetDateTime.now();
-    }
-
-    public void withdraw() {
+    protected void markDeleted() {
         this.deleted = true;
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public void suspend() {
-        this.deleted = true;
+    protected void touch() {
         this.updatedAt = OffsetDateTime.now();
     }
 
