@@ -6,13 +6,11 @@ import com.lcs.lxp.subscription.domain.model.entity.Payment;
 import com.lcs.lxp.subscription.domain.model.entity.Subscription;
 import com.lcs.lxp.subscription.domain.model.vo.PaymentInfo;
 import com.lcs.lxp.subscription.domain.model.vo.SubscriptionStatus;
-import com.lcs.lxp.subscription.domain.repository.PaymentRepository;
 import com.lcs.lxp.subscription.domain.repository.SubscriptionRepository;
 import com.lcs.lxp.subscription.infrastructure.PaymentAdapter;
 import com.lcs.lxp.subscription.infrastructure.PaymentResult;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,15 +22,12 @@ public class SubscriptionService {
     private static final int MONTHLY_SUBSCRIPTION_PRICE = 9900;
 
     private final SubscriptionRepository subscriptionRepository;
-    private final PaymentRepository paymentRepository;
     private final PaymentAdapter paymentAdapter;
 
     public SubscriptionService(
             SubscriptionRepository subscriptionRepository,
-            PaymentRepository paymentRepository,
             PaymentAdapter paymentAdapter) {
         this.subscriptionRepository = subscriptionRepository;
-        this.paymentRepository = paymentRepository;
         this.paymentAdapter = paymentAdapter;
     }
 
@@ -41,11 +36,10 @@ public class SubscriptionService {
         int amount = hasExisting ? MONTHLY_SUBSCRIPTION_PRICE : 0;
 
         Subscription subscription = Subscription.create(memberId);
-        subscriptionRepository.save(subscription);
-
         PaymentInfo paymentInfo = new PaymentInfo(UUID.randomUUID().toString(), amount);
-        Payment payment = Payment.create(subscription.getId().value(), paymentInfo);
-        paymentRepository.save(payment);
+        Payment payment = Payment.create(subscription, paymentInfo);
+        subscription.assignPayment(payment);
+        subscriptionRepository.save(subscription);
 
         if (payment.isFree()) {
             subscription.activate();
@@ -54,7 +48,7 @@ public class SubscriptionService {
             if (result.success()) {
                 subscription.activateByPayment(result.successResponse());
             } else {
-                subscription.markPaymentFailed();
+                subscription.markPaymentFailed(result.failureResponse());
             }
         }
         subscriptionRepository.save(subscription);
@@ -69,13 +63,13 @@ public class SubscriptionService {
             throw new SubscriptionException("본인의 구독권만 취소할 수 있습니다.");
         }
 
-        Optional<Payment> optionalPayment = paymentRepository.findBySubscriptionId(subscriptionId);
-        boolean shouldRefund = optionalPayment.isPresent()
-                && !optionalPayment.get().isFree()
+        Payment payment = subscription.getPayment();
+        boolean shouldRefund = payment != null
+                && !payment.isFree()
                 && subscription.isWithinRefundPeriod();
 
         if (shouldRefund) {
-            paymentAdapter.requestRefund(optionalPayment.get());
+            paymentAdapter.requestRefund(payment);
         }
 
         subscription.cancel();
@@ -101,17 +95,16 @@ public class SubscriptionService {
             subscriptionRepository.save(old);
 
             Subscription newSubscription = Subscription.create(old.getMemberId());
-            subscriptionRepository.save(newSubscription);
-
             PaymentInfo paymentInfo = new PaymentInfo(UUID.randomUUID().toString(), MONTHLY_SUBSCRIPTION_PRICE);
-            Payment payment = Payment.create(newSubscription.getId().value(), paymentInfo);
-            paymentRepository.save(payment);
+            Payment payment = Payment.create(newSubscription, paymentInfo);
+            newSubscription.assignPayment(payment);
+            subscriptionRepository.save(newSubscription);
 
             PaymentResult result = paymentAdapter.requestPayment(payment);
             if (result.success()) {
                 newSubscription.activateByPayment(result.successResponse());
             } else {
-                newSubscription.markPaymentFailed();
+                newSubscription.markPaymentFailed(result.failureResponse());
             }
             subscriptionRepository.save(newSubscription);
         }

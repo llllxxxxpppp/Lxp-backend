@@ -9,7 +9,6 @@ import com.lcs.lxp.subscription.domain.model.vo.PaymentId;
 import com.lcs.lxp.subscription.domain.model.vo.PaymentInfo;
 import com.lcs.lxp.subscription.domain.model.vo.PaymentSuccessResponse;
 import com.lcs.lxp.subscription.domain.model.vo.SubscriptionStatus;
-import com.lcs.lxp.subscription.domain.repository.PaymentRepository;
 import com.lcs.lxp.subscription.domain.repository.SubscriptionRepository;
 import com.lcs.lxp.subscription.infrastructure.PaymentAdapter;
 import com.lcs.lxp.subscription.infrastructure.PaymentResult;
@@ -39,9 +38,6 @@ class SubscriptionServiceTest {
     private SubscriptionRepository subscriptionRepository;
 
     @Mock
-    private PaymentRepository paymentRepository;
-
-    @Mock
     private PaymentAdapter paymentAdapter;
 
     @InjectMocks
@@ -59,10 +55,6 @@ class SubscriptionServiceTest {
             setId(inv.getArgument(0), 1L);
             return inv.getArgument(0);
         });
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
-            setId(inv.getArgument(0), 1L);
-            return inv.getArgument(0);
-        });
 
         SubscriptionResponse response = subscriptionService.createSubscription(1L);
 
@@ -75,10 +67,6 @@ class SubscriptionServiceTest {
     void givenExistingSubscription_whenCreateSubscription_thenCreatesPaidAndActive() {
         when(subscriptionRepository.existsByMemberId(1L)).thenReturn(true);
         when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(inv -> {
-            setId(inv.getArgument(0), 1L);
-            return inv.getArgument(0);
-        });
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
             setId(inv.getArgument(0), 1L);
             return inv.getArgument(0);
         });
@@ -119,13 +107,13 @@ class SubscriptionServiceTest {
         Subscription subscription = Subscription.create(1L);
         subscription.activate();
         setId(subscription, 1L);
-        Payment payment = Payment.create(1L, new PaymentInfo("key", 9900));
+        Payment payment = Payment.create(subscription, new PaymentInfo("key", 9900));
         setId(payment, 1L);
         payment.requestPayment();
         payment.handleSuccess(new PaymentSuccessResponse(new PaymentId(1L), OffsetDateTime.now()));
+        subscription.assignPayment(payment);
 
         when(subscriptionRepository.findById(1L)).thenReturn(Optional.of(subscription));
-        when(paymentRepository.findBySubscriptionId(1L)).thenReturn(Optional.of(payment));
 
         subscriptionService.cancelSubscription(1L, 1L);
 
@@ -140,13 +128,13 @@ class SubscriptionServiceTest {
         subscription.activate();
         ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(15));
         setId(subscription, 1L);
-        Payment payment = Payment.create(1L, new PaymentInfo("key", 9900));
+        Payment payment = Payment.create(subscription, new PaymentInfo("key", 9900));
         setId(payment, 1L);
         payment.requestPayment();
         payment.handleSuccess(new PaymentSuccessResponse(new PaymentId(1L), OffsetDateTime.now()));
+        subscription.assignPayment(payment);
 
         when(subscriptionRepository.findById(1L)).thenReturn(Optional.of(subscription));
-        when(paymentRepository.findBySubscriptionId(1L)).thenReturn(Optional.of(payment));
 
         subscriptionService.cancelSubscription(1L, 1L);
 
@@ -160,11 +148,11 @@ class SubscriptionServiceTest {
         Subscription subscription = Subscription.create(1L);
         subscription.activate();
         setId(subscription, 1L);
-        Payment freePayment = Payment.create(1L, new PaymentInfo("key", 0));
+        Payment freePayment = Payment.create(subscription, new PaymentInfo("key", 0));
         setId(freePayment, 1L);
+        subscription.assignPayment(freePayment);
 
         when(subscriptionRepository.findById(1L)).thenReturn(Optional.of(subscription));
-        when(paymentRepository.findBySubscriptionId(1L)).thenReturn(Optional.of(freePayment));
 
         subscriptionService.cancelSubscription(1L, 1L);
 
@@ -223,10 +211,6 @@ class SubscriptionServiceTest {
                 setId(sub, 2L);
             }
             return sub;
-        });
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
-            setId(inv.getArgument(0), 2L);
-            return inv.getArgument(0);
         });
         PaymentSuccessResponse successResponse = new PaymentSuccessResponse(new PaymentId(2L), OffsetDateTime.now());
         when(paymentAdapter.requestPayment(any())).thenReturn(PaymentResult.success(successResponse));

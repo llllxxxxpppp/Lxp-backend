@@ -28,13 +28,9 @@ public class PaymentAdapter {
         boolean success = paymentGateway.pay(payment.getIdempotencyKey(), payment.getAmount());
         if (success) {
             PaymentSuccessResponse response = new PaymentSuccessResponse(payment.getId(), OffsetDateTime.now());
-            payment.handleSuccess(response);
-            paymentRepository.save(payment);
             return PaymentResult.success(response);
         }
         PaymentFailureResponse response = new PaymentFailureResponse(payment.getId(), "결제 거부됨", OffsetDateTime.now());
-        payment.handleFailure(response);
-        paymentRepository.save(payment);
         return PaymentResult.failure(response);
     }
 
