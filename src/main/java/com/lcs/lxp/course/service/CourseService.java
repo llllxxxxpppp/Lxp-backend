@@ -63,11 +63,6 @@ public class CourseService {
         getCourse(courseId).addLecture(new Title(title), contentUrl);
     }
 
-    public void removeLecture(Long courseId, Long lectureId) {
-        requireRole(MemberRole.INSTRUCTOR, MemberRole.ADMIN);
-        getCourse(courseId).removeLecture(new LectureId(lectureId));
-    }
-
     public void publishLecture(Long courseId, Long lectureId) {
         requireRole(MemberRole.INSTRUCTOR);
         getCourse(courseId).publishLecture(new LectureId(lectureId));
@@ -81,11 +76,6 @@ public class CourseService {
     public void addMission(Long courseId, String title, String content) {
         requireRole(MemberRole.INSTRUCTOR);
         getCourse(courseId).addMission(new Title(title), content);
-    }
-
-    public void removeMission(Long courseId, Long missionId) {
-        requireRole(MemberRole.INSTRUCTOR, MemberRole.ADMIN);
-        getCourse(courseId).removeMission(new MissionId(missionId));
     }
 
     public void publishMission(Long courseId, Long missionId) {
