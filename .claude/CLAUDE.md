@@ -34,7 +34,7 @@ Spring Boot 3.5 기반의 Java 17 웹 애플리케이션. H2 인메모리 데이
 # 애플리케이션 실행
 ./gradlew bootRun
 
-# JaCoCo 커버리지 리포트만 생성 (build/jacocoHtml/index.html)
+# JaCoCo 커버리지 리포트 생성 (테스트 실행 후 자동으로 생성됨, 경로: `build/reports/jacoco/test/jacocoTestReport.xml`)
 ./gradlew jacocoTestReport
 ```
 
