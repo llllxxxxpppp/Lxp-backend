@@ -22,6 +22,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,7 +51,7 @@ class CourseControllerTest {
     @WithMockUser
     @DisplayName("강좌 요약 조회 요청이 성공하면 200과 요약 정보를 반환한다")
     void givenExistingCourse_whenGetCourseSummary_thenReturns200WithSummary() throws Exception {
-        CourseSummaryResponse summary = new CourseSummaryResponse(1L, 1L, "강좌 제목", "PRIVATE");
+        CourseSummaryResponse summary = new CourseSummaryResponse(1L, 1L, "강좌 제목", "PRIVATE", null);
         when(courseService.getCourseSummary(1L)).thenReturn(summary);
 
         mockMvc.perform(get("/api/courses/1"))
@@ -85,7 +86,7 @@ class CourseControllerTest {
     void givenExistingCourse_whenGetCourseDetail_thenReturns200WithDetail() throws Exception {
         List<LectureResponse> lectures = List.of(new LectureResponse(10L, "강의 제목", "PRIVATE"));
         List<MissionResponse> missions = List.of(new MissionResponse(20L, "미션 제목", "PRIVATE"));
-        CourseDetailResponse detail = new CourseDetailResponse(1L, 1L, "강좌 제목", "PRIVATE", lectures, missions);
+        CourseDetailResponse detail = new CourseDetailResponse(1L, 1L, "강좌 제목", "PRIVATE", "강좌 설명", null, lectures, missions);
         when(courseService.getCourseDetail(1L)).thenReturn(detail);
 
         mockMvc.perform(get("/api/courses/1/detail"))
@@ -117,7 +118,7 @@ class CourseControllerTest {
     @WithMockUser(username = "1")
     @DisplayName("강좌 생성 요청이 성공하면 201을 반환한다")
     void givenValidRequest_whenCreateCourse_thenReturns201() throws Exception {
-        CreateCourseRequest request = new CreateCourseRequest("강좌 제목");
+        CreateCourseRequest request = new CreateCourseRequest("강좌 제목", "강좌 설명", null);
 
         mockMvc.perform(post("/api/courses")
                         .with(csrf())
@@ -125,7 +126,7 @@ class CourseControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        verify(courseService).createCourse(1L, "강좌 제목");
+        verify(courseService).createCourse(1L, "강좌 제목", "강좌 설명", null);
     }
 
     @Test
@@ -133,9 +134,9 @@ class CourseControllerTest {
     @DisplayName("강좌 생성 시 서비스에서 예외가 발생하면 400을 반환한다")
     void givenServiceException_whenCreateCourse_thenReturns400() throws Exception {
         doThrow(new CourseException("접근 권한이 없습니다."))
-                .when(courseService).createCourse(anyLong(), anyString());
+                .when(courseService).createCourse(anyLong(), anyString(), anyString(), nullable(String.class));
 
-        CreateCourseRequest request = new CreateCourseRequest("강좌 제목");
+        CreateCourseRequest request = new CreateCourseRequest("강좌 제목", "강좌 설명", null);
 
         mockMvc.perform(post("/api/courses")
                         .with(csrf())
@@ -144,14 +145,14 @@ class CourseControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
 
-        verify(courseService).createCourse(anyLong(), anyString());
+        verify(courseService).createCourse(anyLong(), anyString(), anyString(), nullable(String.class));
     }
 
     @Test
     @WithMockUser
     @DisplayName("강좌 수정 요청이 성공하면 200을 반환한다")
     void givenValidRequest_whenUpdateCourse_thenReturns200() throws Exception {
-        UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목");
+        UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목", "수정된 설명", null);
 
         mockMvc.perform(patch("/api/courses/1")
                         .with(csrf())
@@ -159,7 +160,7 @@ class CourseControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
 
-        verify(courseService).updateCourse(1L, "수정된 제목");
+        verify(courseService).updateCourse(1L, "수정된 제목", "수정된 설명", null);
     }
 
     @Test
@@ -167,9 +168,9 @@ class CourseControllerTest {
     @DisplayName("강좌 수정 시 서비스에서 예외가 발생하면 400을 반환한다")
     void givenServiceException_whenUpdateCourse_thenReturns400() throws Exception {
         doThrow(new CourseException("공개 상태에서는 강좌를 수정할 수 없습니다."))
-                .when(courseService).updateCourse(anyLong(), anyString());
+                .when(courseService).updateCourse(anyLong(), anyString(), anyString(), nullable(String.class));
 
-        UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목");
+        UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목", "수정된 설명", null);
 
         mockMvc.perform(patch("/api/courses/1")
                         .with(csrf())
@@ -178,7 +179,7 @@ class CourseControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("공개 상태에서는 강좌를 수정할 수 없습니다."));
 
-        verify(courseService).updateCourse(anyLong(), anyString());
+        verify(courseService).updateCourse(anyLong(), anyString(), anyString(), nullable(String.class));
     }
 
     @Test

@@ -34,6 +34,12 @@ public class Course {
     @Embedded
     private Title title;
 
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String description;
+
+    @Column
+    private String thumbnailUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ContentStatus status;
@@ -55,10 +61,18 @@ public class Course {
 
     protected Course() {}
 
-    public static Course create(InstructorId instructorId, Title title) {
+    public static Course create(InstructorId instructorId, Title title, String description, String thumbnailUrl) {
+        if (description == null || description.isBlank()) {
+            throw new CourseException("설명은 비어있을 수 없습니다.");
+        }
+        if (description.length() > 4096) {
+            throw new CourseException("설명은 4096자를 초과할 수 없습니다.");
+        }
         Course course = new Course();
         course.instructorId = instructorId.value();
         course.title = title;
+        course.description = description;
+        course.thumbnailUrl = thumbnailUrl;
         course.status = ContentStatus.PRIVATE;
         course.createdAt = OffsetDateTime.now();
         return course;
@@ -78,6 +92,14 @@ public class Course {
 
     public Title getTitle() {
         return title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
     }
 
     public boolean isDeleted() {
@@ -100,11 +122,19 @@ public class Course {
         return List.copyOf(missions);
     }
 
-    public void update(Title newTitle) {
+    public void update(Title newTitle, String description, String thumbnailUrl) {
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강좌를 수정할 수 없습니다.");
         }
+        if (description == null || description.isBlank()) {
+            throw new CourseException("설명은 비어있을 수 없습니다.");
+        }
+        if (description.length() > 4096) {
+            throw new CourseException("설명은 4096자를 초과할 수 없습니다.");
+        }
         this.title = newTitle;
+        this.description = description;
+        this.thumbnailUrl = thumbnailUrl;
         this.updatedAt = OffsetDateTime.now();
     }
 

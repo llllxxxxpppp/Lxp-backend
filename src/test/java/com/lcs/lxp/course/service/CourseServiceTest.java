@@ -46,11 +46,11 @@ class CourseServiceTest {
 
     @BeforeEach
     void setUp() {
-        privateCourse = Course.create(new InstructorId(1L), new Title("강좌 제목"));
+        privateCourse = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
         privateCourse.addLecture(new Title("강의"));
         privateCourse.addMission(new Title("미션"), "문제 내용");
 
-        publishedCourse = Course.create(new InstructorId(1L), new Title("강좌 제목"));
+        publishedCourse = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
         publishedCourse.addLecture(new Title("강의"));
         publishedCourse.addMission(new Title("미션"), "문제 내용");
         publishedCourse.publish();
@@ -72,7 +72,7 @@ class CourseServiceTest {
     @Test
     @DisplayName("강좌 요약 정보를 조회하면 강좌 기본 정보를 반환한다")
     void givenExistingCourse_whenGetCourseSummary_thenReturnsSummary() {
-        Course course = Course.create(new InstructorId(1L), new Title("강좌 제목"));
+        Course course = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
         ReflectionTestUtils.setField(course, "id", 1L);
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
 
@@ -97,7 +97,7 @@ class CourseServiceTest {
     @Test
     @DisplayName("강좌 상세 정보를 조회하면 강의와 미션을 포함한 정보를 반환한다")
     void givenExistingCourseWithLecturesAndMissions_whenGetCourseDetail_thenReturnsDetail() {
-        Course course = Course.create(new InstructorId(1L), new Title("강좌 제목"));
+        Course course = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
         ReflectionTestUtils.setField(course, "id", 1L);
         ReflectionTestUtils.setField(course.addLecture(new Title("강의 제목")), "id", 10L);
         ReflectionTestUtils.setField(course.addMission(new Title("미션 제목"), "문제 내용"), "id", 20L);
@@ -132,7 +132,7 @@ class CourseServiceTest {
     void givenInstructorRole_whenCreateCourse_thenCourseIsSaved() {
         authenticate(MemberRole.INSTRUCTOR);
 
-        courseService.createCourse(1L, "강좌 제목");
+        courseService.createCourse(1L, "강좌 제목", "강좌 설명", null);
 
         verify(courseRepository).save(any(Course.class));
     }
@@ -142,7 +142,7 @@ class CourseServiceTest {
     void givenMemberRole_whenCreateCourse_thenThrowsException() {
         authenticate(MemberRole.MEMBER);
 
-        assertThrows(CourseException.class, () -> courseService.createCourse(1L, "강좌 제목"));
+        assertThrows(CourseException.class, () -> courseService.createCourse(1L, "강좌 제목", "강좌 설명", null));
     }
 
     @Test
@@ -150,13 +150,13 @@ class CourseServiceTest {
     void givenAdminRole_whenCreateCourse_thenThrowsException() {
         authenticate(MemberRole.ADMIN);
 
-        assertThrows(CourseException.class, () -> courseService.createCourse(1L, "강좌 제목"));
+        assertThrows(CourseException.class, () -> courseService.createCourse(1L, "강좌 제목", "강좌 설명", null));
     }
 
     @Test
     @DisplayName("인증되지 않은 사용자가 강좌를 생성하면 예외가 발생한다")
     void givenUnauthenticated_whenCreateCourse_thenThrowsException() {
-        assertThrows(CourseException.class, () -> courseService.createCourse(1L, "강좌 제목"));
+        assertThrows(CourseException.class, () -> courseService.createCourse(1L, "강좌 제목", "강좌 설명", null));
     }
 
     // --- updateCourse ---
@@ -166,7 +166,7 @@ class CourseServiceTest {
     void givenPrivateCourse_whenUpdateCourse_thenTitleIsUpdated() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
-        courseService.updateCourse(1L, "수정된 제목");
+        courseService.updateCourse(1L, "수정된 제목", "수정된 설명", null);
 
         assertEquals("수정된 제목", privateCourse.getTitle().getValue());
     }
@@ -176,7 +176,7 @@ class CourseServiceTest {
     void givenPublicCourse_whenUpdateCourse_thenThrowsException() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(publishedCourse));
 
-        assertThrows(CourseException.class, () -> courseService.updateCourse(1L, "수정된 제목"));
+        assertThrows(CourseException.class, () -> courseService.updateCourse(1L, "수정된 제목", "수정된 설명", null));
     }
 
     @Test
@@ -184,7 +184,7 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenUpdateCourse_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.updateCourse(999L, "수정된 제목"));
+        assertThrows(CourseException.class, () -> courseService.updateCourse(999L, "수정된 제목", "수정된 설명", null));
     }
 
     // --- publishCourse ---

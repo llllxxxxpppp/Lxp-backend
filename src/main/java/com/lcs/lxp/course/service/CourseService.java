@@ -33,15 +33,15 @@ public class CourseService {
         return CourseDetailResponse.from(getCourse(courseId));
     }
 
-    public void createCourse(Long instructorId, String title) {
+    public void createCourse(Long instructorId, String title, String description, String thumbnailUrl) {
         requireRole(MemberRole.INSTRUCTOR);
-        Course course = Course.create(new InstructorId(instructorId), new Title(title));
+        Course course = Course.create(new InstructorId(instructorId), new Title(title), description, thumbnailUrl);
         courseRepository.save(course);
     }
 
-    public void updateCourse(Long courseId, String newTitle) {
+    public void updateCourse(Long courseId, String newTitle, String description, String thumbnailUrl) {
         Course course = getCourse(courseId);
-        course.update(new Title(newTitle));
+        course.update(new Title(newTitle), description, thumbnailUrl);
     }
 
     public void publishCourse(Long courseId) {

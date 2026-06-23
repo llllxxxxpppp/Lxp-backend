@@ -41,7 +41,7 @@ public class CourseController {
             @RequestBody CreateCourseRequest request,
             Authentication authentication) {
         Long instructorId = Long.parseLong(authentication.getName());
-        courseService.createCourse(instructorId, request.title());
+        courseService.createCourse(instructorId, request.title(), request.description(), request.thumbnailUrl());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -49,7 +49,7 @@ public class CourseController {
     public ResponseEntity<Void> updateCourse(
             @PathVariable Long courseId,
             @RequestBody UpdateCourseRequest request) {
-        courseService.updateCourse(courseId, request.title());
+        courseService.updateCourse(courseId, request.title(), request.description(), request.thumbnailUrl());
         return ResponseEntity.ok().build();
     }
 
