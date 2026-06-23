@@ -13,9 +13,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CourseTest {
 
@@ -33,13 +31,6 @@ class CourseTest {
     void givenInstructor_whenCreateCourse_thenStatusIsPrivate() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
         assertEquals(ContentStatus.PRIVATE, course.getStatus());
-    }
-
-    @Test
-    @DisplayName("강좌 생성 시 삭제 상태가 아니다")
-    void givenInstructor_whenCreateCourse_thenNotDeleted() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        assertFalse(course.isDeleted());
     }
 
     @Test
@@ -128,8 +119,8 @@ class CourseTest {
     }
 
     @Test
-    @DisplayName("비공개 처리하면 삭제 상태가 된다")
-    void givenPublicCourse_whenUnpublish_thenStatusIsPrivateAndDeleted() {
+    @DisplayName("비공개 처리하면 상태가 PRIVATE이 된다")
+    void givenPublicCourse_whenUnpublish_thenStatusIsPrivate() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
         course.addLecture(new Title("강의"));
         course.addMission(new Title("미션"), "문제 내용");
@@ -137,7 +128,6 @@ class CourseTest {
         course.unpublish();
 
         assertEquals(ContentStatus.PRIVATE, course.getStatus());
-        assertTrue(course.isDeleted());
     }
 
     @Test
@@ -193,17 +183,6 @@ class CourseTest {
     }
 
     @Test
-    @DisplayName("Course를 통해 강의를 비공개할 수 있다")
-    void givenLectureInCourse_whenUnpublishLectureViaCourse_thenDeleted() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture lecture = course.addLecture(new Title("강의"));
-        ReflectionTestUtils.setField(lecture, "id", 10L);
-
-        course.unpublishLecture(new LectureId(10L));
-        assertTrue(course.getLectures().get(0).isDeleted());
-    }
-
-    @Test
     @DisplayName("존재하지 않는 미션을 Course를 통해 수정하면 예외가 발생한다")
     void givenMissionNotInCourse_whenUpdateMission_thenThrowsException() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
@@ -233,36 +212,4 @@ class CourseTest {
         assertEquals(ContentStatus.PUBLIC, course.getMissions().get(0).getStatus());
     }
 
-    @Test
-    @DisplayName("Course를 통해 미션을 비공개할 수 있다")
-    void givenMissionInCourse_whenUnpublishMissionViaCourse_thenDeleted() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Mission mission = course.addMission(new Title("미션"), "문제 내용");
-        ReflectionTestUtils.setField(mission, "id", 20L);
-
-        course.unpublishMission(new MissionId(20L));
-        assertTrue(course.getMissions().get(0).isDeleted());
-    }
-
-    @Test
-    @DisplayName("비공개된 강의만 있으면 공개할 수 없다")
-    void givenCourseWithOnlyDeletedLecture_whenPublish_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture lecture = course.addLecture(new Title("강의"));
-        course.addMission(new Title("미션"), "문제 내용");
-        lecture.unpublish();
-
-        assertThrows(CourseException.class, course::publish);
-    }
-
-    @Test
-    @DisplayName("비공개된 미션만 있으면 공개할 수 없다")
-    void givenCourseWithOnlyDeletedMission_whenPublish_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        course.addLecture(new Title("강의"));
-        Mission mission = course.addMission(new Title("미션"), "문제 내용");
-        mission.unpublish();
-
-        assertThrows(CourseException.class, course::publish);
-    }
 }

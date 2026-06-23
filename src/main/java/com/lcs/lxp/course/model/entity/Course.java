@@ -52,9 +52,6 @@ public class Course {
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Mission> missions = new ArrayList<>();
 
-    @Column(nullable = false)
-    private boolean deleted;
-
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -102,10 +99,6 @@ public class Course {
 
     public String getThumbnailUrl() {
         return thumbnailUrl;
-    }
-
-    public boolean isDeleted() {
-        return deleted;
     }
 
     public OffsetDateTime getCreatedAt() {
@@ -197,9 +190,7 @@ public class Course {
     }
 
     public void publish() {
-        boolean hasActiveLecture = lectures.stream().anyMatch(l -> !l.isDeleted());
-        boolean hasActiveMission = missions.stream().anyMatch(m -> !m.isDeleted());
-        if (!hasActiveLecture || !hasActiveMission) {
+        if (lectures.isEmpty() || missions.isEmpty()) {
             throw new CourseException("강의와 미션을 1개 이상 포함해야 공개할 수 있습니다.");
         }
         this.status = ContentStatus.PUBLIC;
@@ -208,7 +199,6 @@ public class Course {
 
     public void unpublish() {
         this.status = ContentStatus.PRIVATE;
-        this.deleted = true;
         this.updatedAt = OffsetDateTime.now();
     }
 }

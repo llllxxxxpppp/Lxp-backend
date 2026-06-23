@@ -37,9 +37,6 @@ public class Lecture {
     @Column(nullable = false)
     private ContentStatus status;
 
-    @Column(nullable = false)
-    private boolean deleted;
-
     @Column
     private String contentUrl;
 
@@ -80,10 +77,6 @@ public class Lecture {
         return contentUrl;
     }
 
-    public boolean isDeleted() {
-        return deleted;
-    }
-
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -111,7 +104,6 @@ public class Lecture {
 
     void unpublish() {
         this.status = ContentStatus.PRIVATE;
-        this.deleted = true;
         this.updatedAt = OffsetDateTime.now();
     }
 }

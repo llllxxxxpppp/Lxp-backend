@@ -10,9 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LectureTest {
 
@@ -33,13 +31,6 @@ class LectureTest {
     void givenPrivateCourse_whenAddLecture_thenStatusIsPrivate() {
         Lecture lecture = privateCourse.addLecture(new Title("강의"));
         assertEquals(ContentStatus.PRIVATE, lecture.getStatus());
-    }
-
-    @Test
-    @DisplayName("강의 생성 시 삭제 상태가 아니다")
-    void givenPrivateCourse_whenAddLecture_thenNotDeleted() {
-        Lecture lecture = privateCourse.addLecture(new Title("강의"));
-        assertFalse(lecture.isDeleted());
     }
 
     @Test
@@ -95,13 +86,12 @@ class LectureTest {
     }
 
     @Test
-    @DisplayName("강의를 비공개하면 삭제 상태가 된다")
-    void givenPublicLecture_whenUnpublish_thenStatusIsPrivateAndDeleted() {
+    @DisplayName("강의를 비공개하면 상태가 PRIVATE이 된다")
+    void givenPublicLecture_whenUnpublish_thenStatusIsPrivate() {
         Lecture lecture = privateCourse.addLecture(new Title("강의"));
         lecture.publish();
         lecture.unpublish();
 
         assertEquals(ContentStatus.PRIVATE, lecture.getStatus());
-        assertTrue(lecture.isDeleted());
     }
 }

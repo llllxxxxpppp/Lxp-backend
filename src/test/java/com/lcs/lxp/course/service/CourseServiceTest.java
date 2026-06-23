@@ -27,7 +27,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -228,27 +227,25 @@ class CourseServiceTest {
     // --- unpublishCourse ---
 
     @Test
-    @DisplayName("강사가 강좌를 비공개하면 상태가 PRIVATE이고 삭제 상태가 된다")
-    void givenInstructorRole_whenUnpublishCourse_thenStatusIsPrivateAndDeleted() {
+    @DisplayName("강사가 강좌를 비공개하면 상태가 PRIVATE이 된다")
+    void givenInstructorRole_whenUnpublishCourse_thenStatusIsPrivate() {
         authenticate(MemberRole.INSTRUCTOR);
         when(courseRepository.findById(1L)).thenReturn(Optional.of(publishedCourse));
 
         courseService.unpublishCourse(1L);
 
         assertEquals(ContentStatus.PRIVATE, publishedCourse.getStatus());
-        assertTrue(publishedCourse.isDeleted());
     }
 
     @Test
-    @DisplayName("어드민이 강좌를 비공개하면 상태가 PRIVATE이고 삭제 상태가 된다")
-    void givenAdminRole_whenUnpublishCourse_thenStatusIsPrivateAndDeleted() {
+    @DisplayName("어드민이 강좌를 비공개하면 상태가 PRIVATE이 된다")
+    void givenAdminRole_whenUnpublishCourse_thenStatusIsPrivate() {
         authenticate(MemberRole.ADMIN);
         when(courseRepository.findById(1L)).thenReturn(Optional.of(publishedCourse));
 
         courseService.unpublishCourse(1L);
 
         assertEquals(ContentStatus.PRIVATE, publishedCourse.getStatus());
-        assertTrue(publishedCourse.isDeleted());
     }
 
     @Test

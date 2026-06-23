@@ -37,9 +37,6 @@ public class Mission {
     @Column(nullable = false)
     private ContentStatus status;
 
-    @Column(nullable = false)
-    private boolean deleted;
-
     @Column(columnDefinition = "TEXT", length = 4096)
     private String content;
 
@@ -87,10 +84,6 @@ public class Mission {
         return content;
     }
 
-    public boolean isDeleted() {
-        return deleted;
-    }
-
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -121,7 +114,6 @@ public class Mission {
 
     void unpublish() {
         this.status = ContentStatus.PRIVATE;
-        this.deleted = true;
         this.updatedAt = OffsetDateTime.now();
     }
 }
