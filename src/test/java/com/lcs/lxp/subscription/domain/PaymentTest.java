@@ -2,6 +2,7 @@ package com.lcs.lxp.subscription.domain;
 
 import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
 import com.lcs.lxp.subscription.domain.model.entity.Payment;
+import com.lcs.lxp.subscription.domain.model.entity.Subscription;
 import com.lcs.lxp.subscription.domain.model.vo.PaymentFailureResponse;
 import com.lcs.lxp.subscription.domain.model.vo.PaymentId;
 import com.lcs.lxp.subscription.domain.model.vo.PaymentInfo;
@@ -27,10 +28,12 @@ class PaymentTest {
 
     private Payment payment;
     private PaymentId paymentId;
+    private Subscription subscription;
 
     @BeforeEach
     void setUp() {
-        payment = Payment.create(1L, new PaymentInfo("idempotency-key", 9900));
+        subscription = Subscription.create(1L);
+        payment = Payment.create(subscription, new PaymentInfo("idempotency-key", 9900));
         ReflectionTestUtils.setField(payment, "id", 1L);
         paymentId = payment.getId();
     }
@@ -56,7 +59,7 @@ class PaymentTest {
     @Test
     @DisplayName("결제가 생성되면 초기 상태는 PAYMENT_NOT_REQUESTED이다")
     void givenValidPaymentInfo_whenCreatePayment_thenStatusIsPaymentNotRequested() {
-        Payment newPayment = Payment.create(1L, new PaymentInfo("key", 9900));
+        Payment newPayment = Payment.create(subscription, new PaymentInfo("key", 9900));
 
         assertEquals(PaymentStatus.PAYMENT_NOT_REQUESTED, newPayment.getStatus());
         assertNotNull(newPayment.getCreatedAt());
@@ -65,7 +68,7 @@ class PaymentTest {
     @Test
     @DisplayName("금액이 0이면 isFree가 true를 반환한다")
     void givenZeroAmount_whenCreatePayment_thenIsFreeIsTrue() {
-        Payment freePayment = Payment.create(1L, new PaymentInfo("key", 0));
+        Payment freePayment = Payment.create(subscription, new PaymentInfo("key", 0));
 
         assertTrue(freePayment.isFree());
     }

@@ -1,8 +1,11 @@
 package com.lcs.lxp.subscription.domain;
 
 import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
+import com.lcs.lxp.subscription.domain.model.entity.Payment;
 import com.lcs.lxp.subscription.domain.model.entity.Subscription;
+import com.lcs.lxp.subscription.domain.model.vo.PaymentFailureResponse;
 import com.lcs.lxp.subscription.domain.model.vo.PaymentId;
+import com.lcs.lxp.subscription.domain.model.vo.PaymentInfo;
 import com.lcs.lxp.subscription.domain.model.vo.PaymentSuccessResponse;
 import com.lcs.lxp.subscription.domain.model.vo.SubscriptionStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +61,9 @@ class SubscriptionTest {
     @Test
     @DisplayName("결제 성공 응답으로 활성화하면 상태가 ACTIVE가 되고 activatedAt에 승인 일시가 설정된다")
     void givenInactiveSubscription_whenActivateByPayment_thenStatusIsActiveAndActivatedAtIsSet() {
+        Payment payment = Payment.create(subscription, new PaymentInfo("key", 9900));
+        payment.requestPayment();
+        subscription.assignPayment(payment);
         OffsetDateTime approvedAt = OffsetDateTime.now();
         PaymentSuccessResponse response = new PaymentSuccessResponse(new PaymentId(1L), approvedAt);
 
@@ -79,7 +85,12 @@ class SubscriptionTest {
     @Test
     @DisplayName("결제 실패 처리 시 상태가 PAYMENT_FAILED가 된다")
     void givenInactiveSubscription_whenMarkPaymentFailed_thenStatusIsPaymentFailed() {
-        subscription.markPaymentFailed();
+        Payment payment = Payment.create(subscription, new PaymentInfo("key", 9900));
+        payment.requestPayment();
+        subscription.assignPayment(payment);
+        PaymentFailureResponse response = new PaymentFailureResponse(new PaymentId(1L), "잔액 부족", OffsetDateTime.now());
+
+        subscription.markPaymentFailed(response);
 
         assertEquals(SubscriptionStatus.PAYMENT_FAILED, subscription.getStatus());
         assertNotNull(subscription.getUpdatedAt());
@@ -89,8 +100,9 @@ class SubscriptionTest {
     @DisplayName("비활성 상태가 아닌 구독권에 결제 실패 처리하면 예외가 발생한다")
     void givenNonInactiveSubscription_whenMarkPaymentFailed_thenThrowsException() {
         subscription.activate();
+        PaymentFailureResponse response = new PaymentFailureResponse(new PaymentId(1L), "잔액 부족", OffsetDateTime.now());
 
-        assertThrows(SubscriptionException.class, () -> subscription.markPaymentFailed());
+        assertThrows(SubscriptionException.class, () -> subscription.markPaymentFailed(response));
     }
 
     @Test
