@@ -16,6 +16,9 @@ Spring Boot 3.5 기반의 Java 17 웹 애플리케이션. H2 인메모리 데이
 # 빌드
 ./gradlew build
 
+# 모든 테스트 및 PMD 정적 분석 실행
+./gradlew check
+
 # 테스트 실행 (JaCoCo 커버리지 리포트도 함께 생성됨)
 ./gradlew test
 
@@ -58,8 +61,9 @@ Spring Boot 3.5 기반의 Java 17 웹 애플리케이션. H2 인메모리 데이
 
 ## 주요 문서
 
+- `.claude/rules/**.md`: 작업 시 반드시 숙지해야 하는 규칙들을 명세한 문서들이다.
 - `.claude/ARCHITECTURE.md`: 프로젝트 및 도메인 패키지 구조를 설명한 문서이다.
-- `.claude/domain/*.md`: 필요 도메인별로 비즈니스 규칙 (불변식) 과 예상 클래스별로 책임을 명시한 문서가 위치한다.
+- `.claude/DOMAIN.md`: 필요 도메인별로 비즈니스 규칙 (불변식) 과 예상 클래스별로 책임을 명시한 문서들의 요약 문서이다.
 - `.claude/PROGRESS.md`: 구현이 완료된 기능들이 요약되어있는 문서이다.
 
 ## 작업 절자

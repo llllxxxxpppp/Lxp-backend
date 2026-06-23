@@ -1,32 +1,32 @@
 plugins {
-	java
+    java
     pmd
     jacoco
     id("org.springframework.boot") version "3.5.15"
-	id("io.spring.dependency-management") version "1.1.7"
+    id("io.spring.dependency-management") version "1.1.7"
 }
 
 group = "com.lcs"
 version = "0.0.1-SNAPSHOT"
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
 dependencies {
-	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-	implementation("org.springframework.boot:spring-boot-starter-security")
-	implementation("org.springframework.boot:spring-boot-starter-web")
-	runtimeOnly("com.h2database:h2")
-	testImplementation("org.springframework.boot:spring-boot-starter-test")
-	testImplementation("org.springframework.security:spring-security-test")
-	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    runtimeOnly("com.h2database:h2")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-test")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 pmd {
@@ -40,14 +40,15 @@ pmd {
 tasks.withType<Test> {
     finalizedBy(tasks.jacocoTestReport)
 
-	useJUnitPlatform()
+    useJUnitPlatform()
 }
 
 tasks.withType<JacocoReport> {
-	reports {
+    dependsOn(tasks.test)
+
+    reports {
         html.required.set(true)
-		xml.required.set(true)
-		csv.required.set(false)
-		html.outputLocation.set(layout.buildDirectory.dir("jacocoHtml"))
-	}
+        xml.required.set(true)
+        csv.required.set(false)
+    }
 }

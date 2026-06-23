@@ -25,7 +25,12 @@ com.lcs.lxp
 ```text
 (Bounded Context)
 ├─ controller
+├─ dto
+│  ├─ request
+│  └─ response
 ├─ model
+│  ├─ entity
+│  └─ vo
 ├─ service
 ├─ repository
 ├─ event
@@ -38,12 +43,16 @@ com.lcs.lxp
 subscription (Bounded Context)
 ├─ application
 │  ├─ service
-│  └─ model
-│     └─ dto
+│  └─ dto
+│     ├─ request
+│     └─ response
 ├─ domain
 │  ├─ model
+│  │  ├─ entity
+│  │  └─ vo
 │  ├─ event
 │  ├─ repository
 │  └─ exception
-└─ infrastructure
+├─ infrastructure
+└─ presentation
 ```
