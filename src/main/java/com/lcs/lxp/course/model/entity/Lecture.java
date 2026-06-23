@@ -16,6 +16,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "lectures")
@@ -39,6 +40,12 @@ public class Lecture {
     @Column(nullable = false)
     private boolean deleted;
 
+    @Column(nullable = false, updatable = false)
+    private OffsetDateTime createdAt;
+
+    @Column
+    private OffsetDateTime updatedAt;
+
     protected Lecture() {}
 
     static Lecture create(Course course, Title title) {
@@ -46,6 +53,7 @@ public class Lecture {
         lecture.course = course;
         lecture.title = title;
         lecture.status = ContentStatus.PRIVATE;
+        lecture.createdAt = OffsetDateTime.now();
         return lecture;
     }
 
@@ -65,19 +73,30 @@ public class Lecture {
         return deleted;
     }
 
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public OffsetDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
     public void update(Title newTitle) {
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 수정할 수 없습니다.");
         }
         this.title = newTitle;
+        this.updatedAt = OffsetDateTime.now();
     }
 
     public void publish() {
         this.status = ContentStatus.PUBLIC;
+        this.updatedAt = OffsetDateTime.now();
     }
 
     public void unpublish() {
         this.status = ContentStatus.PRIVATE;
         this.deleted = true;
+        this.updatedAt = OffsetDateTime.now();
     }
 }
