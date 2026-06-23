@@ -51,6 +51,12 @@ public class Mission {
     protected Mission() {}
 
     static Mission create(Course course, Title title, String content) {
+        if (course == null) {
+            throw new CourseException("강좌는 null일 수 없습니다.");
+        }
+        if (title == null) {
+            throw new CourseException("제목은 null일 수 없습니다.");
+        }
         if (content == null || content.isBlank()) {
             throw new CourseException("문제 내용은 비어있을 수 없습니다.");
         }
@@ -97,6 +103,9 @@ public class Mission {
     void update(Title newTitle, String content) {
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 미션을 수정할 수 없습니다.");
+        }
+        if (newTitle == null) {
+            throw new CourseException("제목은 null일 수 없습니다.");
         }
         if (content == null || content.isBlank()) {
             throw new CourseException("문제 내용은 비어있을 수 없습니다.");
