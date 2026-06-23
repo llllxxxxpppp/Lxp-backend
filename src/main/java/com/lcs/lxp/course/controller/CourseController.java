@@ -7,6 +7,7 @@ import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.service.CourseService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -40,7 +41,7 @@ public class CourseController {
 
     @PostMapping
     public ResponseEntity<Void> createCourse(
-            @RequestBody CreateCourseRequest request,
+            @RequestBody @Valid CreateCourseRequest request,
             Authentication authentication) {
         Long instructorId = Long.parseLong(authentication.getName());
         courseService.createCourse(instructorId, request.title(), request.description(), request.thumbnailUrl());
@@ -50,7 +51,7 @@ public class CourseController {
     @PatchMapping("/{courseId}")
     public ResponseEntity<Void> updateCourse(
             @PathVariable Long courseId,
-            @RequestBody UpdateCourseRequest request) {
+            @RequestBody @Valid UpdateCourseRequest request) {
         courseService.updateCourse(courseId, request.title(), request.description(), request.thumbnailUrl());
         return ResponseEntity.ok().build();
     }
@@ -70,7 +71,7 @@ public class CourseController {
     @PostMapping("/{courseId}/lectures")
     public ResponseEntity<Void> addLecture(
             @PathVariable Long courseId,
-            @RequestBody AddLectureRequest request) {
+            @RequestBody @Valid AddLectureRequest request) {
         courseService.addLecture(courseId, request.title(), request.contentUrl());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
@@ -94,7 +95,7 @@ public class CourseController {
     @PostMapping("/{courseId}/missions")
     public ResponseEntity<Void> addMission(
             @PathVariable Long courseId,
-            @RequestBody AddMissionRequest request) {
+            @RequestBody @Valid AddMissionRequest request) {
         courseService.addMission(courseId, request.title(), request.content());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
