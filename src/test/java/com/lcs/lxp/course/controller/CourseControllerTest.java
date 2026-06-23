@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -249,6 +250,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     @Test
@@ -262,6 +265,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     // --- updateCourse validation ---
@@ -277,6 +282,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     @Test
@@ -290,6 +297,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     // --- createCourse description validation ---
@@ -305,6 +314,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     @Test
@@ -318,6 +329,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     // --- updateCourse description validation ---
@@ -333,6 +346,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     @Test
@@ -346,6 +361,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     // --- addLecture validation ---
@@ -361,6 +378,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     @Test
@@ -374,6 +393,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     @Test
@@ -387,6 +408,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     // --- addMission validation ---
@@ -402,6 +425,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     @Test
@@ -415,6 +440,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     @Test
@@ -428,6 +455,8 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 
     @Test
@@ -441,5 +470,7 @@ class CourseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
     }
 }
