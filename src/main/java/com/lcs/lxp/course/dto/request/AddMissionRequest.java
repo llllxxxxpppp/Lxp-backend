@@ -1,4 +1,9 @@
 package com.lcs.lxp.course.dto.request;
 
-public record AddMissionRequest(String title, String content) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record AddMissionRequest(
+        @NotBlank @Size(max = 100) String title,
+        @NotBlank @Size(max = 4096) String content) {
 }

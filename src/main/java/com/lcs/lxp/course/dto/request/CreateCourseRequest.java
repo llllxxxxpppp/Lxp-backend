@@ -1,4 +1,10 @@
 package com.lcs.lxp.course.dto.request;
 
-public record CreateCourseRequest(String title, String description, String thumbnailUrl) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record CreateCourseRequest(
+        @NotBlank @Size(max = 100) String title,
+        @NotBlank @Size(max = 4096) String description,
+        String thumbnailUrl) {
 }

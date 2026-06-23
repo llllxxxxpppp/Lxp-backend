@@ -1,6 +1,8 @@
 package com.lcs.lxp.course.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lcs.lxp.course.dto.request.AddLectureRequest;
+import com.lcs.lxp.course.dto.request.AddMissionRequest;
 import com.lcs.lxp.course.dto.request.CreateCourseRequest;
 import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
@@ -232,5 +234,212 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
 
         verify(courseService).unpublishCourse(anyLong());
+    }
+
+    // --- createCourse validation ---
+
+    @Test
+    @WithMockUser(username = "1")
+    @DisplayName("강좌 생성 시 제목이 빈 값이면 400을 반환한다")
+    void givenBlankTitle_whenCreateCourse_thenReturns400() throws Exception {
+        CreateCourseRequest request = new CreateCourseRequest("", "강좌 설명", null);
+
+        mockMvc.perform(post("/api/courses")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "1")
+    @DisplayName("강좌 생성 시 제목이 100자를 초과하면 400을 반환한다")
+    void givenTitleExceeding100Chars_whenCreateCourse_thenReturns400() throws Exception {
+        CreateCourseRequest request = new CreateCourseRequest("가".repeat(101), "강좌 설명", null);
+
+        mockMvc.perform(post("/api/courses")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    // --- updateCourse validation ---
+
+    @Test
+    @WithMockUser
+    @DisplayName("강좌 수정 시 제목이 빈 값이면 400을 반환한다")
+    void givenBlankTitle_whenUpdateCourse_thenReturns400() throws Exception {
+        UpdateCourseRequest request = new UpdateCourseRequest("", "수정된 설명", null);
+
+        mockMvc.perform(patch("/api/courses/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("강좌 수정 시 제목이 100자를 초과하면 400을 반환한다")
+    void givenTitleExceeding100Chars_whenUpdateCourse_thenReturns400() throws Exception {
+        UpdateCourseRequest request = new UpdateCourseRequest("가".repeat(101), "수정된 설명", null);
+
+        mockMvc.perform(patch("/api/courses/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    // --- createCourse description validation ---
+
+    @Test
+    @WithMockUser(username = "1")
+    @DisplayName("강좌 생성 시 설명이 빈 값이면 400을 반환한다")
+    void givenBlankDescription_whenCreateCourse_thenReturns400() throws Exception {
+        CreateCourseRequest request = new CreateCourseRequest("강좌 제목", "", null);
+
+        mockMvc.perform(post("/api/courses")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "1")
+    @DisplayName("강좌 생성 시 설명이 4096자를 초과하면 400을 반환한다")
+    void givenDescriptionExceeding4096Chars_whenCreateCourse_thenReturns400() throws Exception {
+        CreateCourseRequest request = new CreateCourseRequest("강좌 제목", "가".repeat(4097), null);
+
+        mockMvc.perform(post("/api/courses")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    // --- updateCourse description validation ---
+
+    @Test
+    @WithMockUser
+    @DisplayName("강좌 수정 시 설명이 빈 값이면 400을 반환한다")
+    void givenBlankDescription_whenUpdateCourse_thenReturns400() throws Exception {
+        UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목", "", null);
+
+        mockMvc.perform(patch("/api/courses/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("강좌 수정 시 설명이 4096자를 초과하면 400을 반환한다")
+    void givenDescriptionExceeding4096Chars_whenUpdateCourse_thenReturns400() throws Exception {
+        UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목", "가".repeat(4097), null);
+
+        mockMvc.perform(patch("/api/courses/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    // --- addLecture validation ---
+
+    @Test
+    @WithMockUser
+    @DisplayName("강의 추가 시 제목이 빈 값이면 400을 반환한다")
+    void givenBlankTitle_whenAddLecture_thenReturns400() throws Exception {
+        AddLectureRequest request = new AddLectureRequest("", "https://example.com/lecture");
+
+        mockMvc.perform(post("/api/courses/1/lectures")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("강의 추가 시 제목이 100자를 초과하면 400을 반환한다")
+    void givenTitleExceeding100Chars_whenAddLecture_thenReturns400() throws Exception {
+        AddLectureRequest request = new AddLectureRequest("가".repeat(101), "https://example.com/lecture");
+
+        mockMvc.perform(post("/api/courses/1/lectures")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("강의 추가 시 자료 URL이 빈 값이면 400을 반환한다")
+    void givenBlankContentUrl_whenAddLecture_thenReturns400() throws Exception {
+        AddLectureRequest request = new AddLectureRequest("강의 제목", "");
+
+        mockMvc.perform(post("/api/courses/1/lectures")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    // --- addMission validation ---
+
+    @Test
+    @WithMockUser
+    @DisplayName("미션 추가 시 제목이 빈 값이면 400을 반환한다")
+    void givenBlankTitle_whenAddMission_thenReturns400() throws Exception {
+        AddMissionRequest request = new AddMissionRequest("", "미션 내용");
+
+        mockMvc.perform(post("/api/courses/1/missions")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("미션 추가 시 제목이 100자를 초과하면 400을 반환한다")
+    void givenTitleExceeding100Chars_whenAddMission_thenReturns400() throws Exception {
+        AddMissionRequest request = new AddMissionRequest("가".repeat(101), "미션 내용");
+
+        mockMvc.perform(post("/api/courses/1/missions")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("미션 추가 시 문제 내용이 빈 값이면 400을 반환한다")
+    void givenBlankContent_whenAddMission_thenReturns400() throws Exception {
+        AddMissionRequest request = new AddMissionRequest("미션 제목", "");
+
+        mockMvc.perform(post("/api/courses/1/missions")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("미션 추가 시 문제 내용이 4096자를 초과하면 400을 반환한다")
+    void givenContentExceeding4096Chars_whenAddMission_thenReturns400() throws Exception {
+        AddMissionRequest request = new AddMissionRequest("미션 제목", "가".repeat(4097));
+
+        mockMvc.perform(post("/api/courses/1/missions")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
     }
 }
