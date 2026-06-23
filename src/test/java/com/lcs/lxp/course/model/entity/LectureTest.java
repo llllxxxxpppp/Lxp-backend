@@ -24,7 +24,7 @@ class LectureTest {
         privateCourse = Course.create(new InstructorId(1L), new Title("강좌"));
         publicCourse = Course.create(new InstructorId(1L), new Title("강좌"));
         publicCourse.addLecture(new Title("강의"));
-        publicCourse.addMission(new Title("미션"));
+        publicCourse.addMission(new Title("미션"), "문제 내용");
         publicCourse.publish();
     }
 

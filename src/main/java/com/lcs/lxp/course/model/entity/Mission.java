@@ -40,6 +40,9 @@ public class Mission {
     @Column(nullable = false)
     private boolean deleted;
 
+    @Column(columnDefinition = "TEXT", length = 4096)
+    private String content;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -48,10 +51,17 @@ public class Mission {
 
     protected Mission() {}
 
-    static Mission create(Course course, Title title) {
+    static Mission create(Course course, Title title, String content) {
+        if (content == null || content.isBlank()) {
+            throw new CourseException("문제 내용은 비어있을 수 없습니다.");
+        }
+        if (content.length() > 4096) {
+            throw new CourseException("문제 내용은 4096자를 초과할 수 없습니다.");
+        }
         Mission mission = new Mission();
         mission.course = course;
         mission.title = title;
+        mission.content = content;
         mission.status = ContentStatus.PRIVATE;
         mission.createdAt = OffsetDateTime.now();
         return mission;
@@ -69,6 +79,10 @@ public class Mission {
         return title;
     }
 
+    public String getContent() {
+        return content;
+    }
+
     public boolean isDeleted() {
         return deleted;
     }
@@ -81,11 +95,18 @@ public class Mission {
         return updatedAt;
     }
 
-    public void update(Title newTitle) {
+    public void update(Title newTitle, String content) {
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 미션을 수정할 수 없습니다.");
         }
+        if (content == null || content.isBlank()) {
+            throw new CourseException("문제 내용은 비어있을 수 없습니다.");
+        }
+        if (content.length() > 4096) {
+            throw new CourseException("문제 내용은 4096자를 초과할 수 없습니다.");
+        }
         this.title = newTitle;
+        this.content = content;
         this.updatedAt = OffsetDateTime.now();
     }
 
