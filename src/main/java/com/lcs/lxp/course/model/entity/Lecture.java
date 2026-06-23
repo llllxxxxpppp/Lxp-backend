@@ -37,7 +37,7 @@ public class Lecture {
     @Column(nullable = false)
     private ContentStatus status;
 
-    @Column
+    @Column(nullable = false)
     private String contentUrl;
 
     @Column(nullable = false, updatable = false)
@@ -48,11 +48,15 @@ public class Lecture {
 
     protected Lecture() {}
 
-    static Lecture create(Course course, Title title) {
+    static Lecture create(Course course, Title title, String contentUrl) {
+        if (contentUrl == null || contentUrl.isBlank()) {
+            throw new CourseException("강의 자료 URL은 비어있을 수 없습니다.");
+        }
         Lecture lecture = new Lecture();
         lecture.course = course;
         lecture.title = title;
         lecture.status = ContentStatus.PRIVATE;
+        lecture.contentUrl = contentUrl;
         lecture.createdAt = OffsetDateTime.now();
         return lecture;
     }

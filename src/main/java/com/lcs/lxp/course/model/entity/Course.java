@@ -133,11 +133,11 @@ public class Course {
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public Lecture addLecture(Title lectureTitle) {
+    public Lecture addLecture(Title lectureTitle, String contentUrl) {
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 추가할 수 없습니다.");
         }
-        Lecture lecture = Lecture.create(this, lectureTitle);
+        Lecture lecture = Lecture.create(this, lectureTitle, contentUrl);
         lectures.add(lecture);
         return lecture;
     }

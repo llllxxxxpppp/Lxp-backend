@@ -63,7 +63,7 @@ class CourseTest {
     @DisplayName("공개 상태에서 강좌 제목을 수정하면 예외가 발생한다")
     void givenPublicCourse_whenUpdate_thenThrowsException() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
-        course.addLecture(new Title("강의"));
+        course.addLecture(new Title("강의"), "/lectures/1");
         course.addMission(new Title("미션"), "문제 내용");
         course.publish();
 
@@ -96,7 +96,7 @@ class CourseTest {
     @DisplayName("강의만 있고 미션이 없으면 공개할 수 없다")
     void givenCourseWithLectureOnly_whenPublish_thenThrowsException() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
-        course.addLecture(new Title("강의"));
+        course.addLecture(new Title("강의"), "/lectures/1");
         assertThrows(CourseException.class, course::publish);
     }
 
@@ -112,7 +112,7 @@ class CourseTest {
     @DisplayName("강의와 미션이 각각 1개 이상이면 공개할 수 있다")
     void givenCourseWithLectureAndMission_whenPublish_thenStatusIsPublic() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
-        course.addLecture(new Title("강의"));
+        course.addLecture(new Title("강의"), "/lectures/1");
         course.addMission(new Title("미션"), "문제 내용");
         assertDoesNotThrow(course::publish);
         assertEquals(ContentStatus.PUBLIC, course.getStatus());
@@ -122,7 +122,7 @@ class CourseTest {
     @DisplayName("비공개 처리하면 상태가 PRIVATE이 된다")
     void givenPublicCourse_whenUnpublish_thenStatusIsPrivate() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
-        course.addLecture(new Title("강의"));
+        course.addLecture(new Title("강의"), "/lectures/1");
         course.addMission(new Title("미션"), "문제 내용");
         course.publish();
         course.unpublish();
@@ -134,18 +134,18 @@ class CourseTest {
     @DisplayName("공개 상태에서 강의를 추가하면 예외가 발생한다")
     void givenPublicCourse_whenAddLecture_thenThrowsException() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
-        course.addLecture(new Title("강의"));
+        course.addLecture(new Title("강의"), "/lectures/1");
         course.addMission(new Title("미션"), "문제 내용");
         course.publish();
 
-        assertThrows(CourseException.class, () -> course.addLecture(new Title("강의2")));
+        assertThrows(CourseException.class, () -> course.addLecture(new Title("강의2"), "/lectures/2"));
     }
 
     @Test
     @DisplayName("공개 상태에서 미션을 추가하면 예외가 발생한다")
     void givenPublicCourse_whenAddMission_thenThrowsException() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
-        course.addLecture(new Title("강의"));
+        course.addLecture(new Title("강의"), "/lectures/1");
         course.addMission(new Title("미션"), "문제 내용");
         course.publish();
 
@@ -164,7 +164,7 @@ class CourseTest {
     @DisplayName("Course를 통해 강의를 수정할 수 있다")
     void givenLectureInCourse_whenUpdateLectureViaCourse_thenSucceeds() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture lecture = course.addLecture(new Title("강의"));
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1");
         ReflectionTestUtils.setField(lecture, "id", 10L);
 
         assertDoesNotThrow(() -> course.updateLecture(new LectureId(10L), new Title("수정된 강의"), "/lectures/1"));
@@ -175,7 +175,7 @@ class CourseTest {
     @DisplayName("Course를 통해 강의를 공개할 수 있다")
     void givenLectureInCourse_whenPublishLectureViaCourse_thenStatusIsPublic() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture lecture = course.addLecture(new Title("강의"));
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1");
         ReflectionTestUtils.setField(lecture, "id", 10L);
 
         course.publishLecture(new LectureId(10L));

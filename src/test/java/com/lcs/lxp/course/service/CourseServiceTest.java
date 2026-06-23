@@ -46,11 +46,11 @@ class CourseServiceTest {
     @BeforeEach
     void setUp() {
         privateCourse = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
-        privateCourse.addLecture(new Title("강의"));
+        privateCourse.addLecture(new Title("강의"), "/lectures/1");
         privateCourse.addMission(new Title("미션"), "문제 내용");
 
         publishedCourse = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
-        publishedCourse.addLecture(new Title("강의"));
+        publishedCourse.addLecture(new Title("강의"), "/lectures/1");
         publishedCourse.addMission(new Title("미션"), "문제 내용");
         publishedCourse.publish();
     }
@@ -98,7 +98,7 @@ class CourseServiceTest {
     void givenExistingCourseWithLecturesAndMissions_whenGetCourseDetail_thenReturnsDetail() {
         Course course = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
         ReflectionTestUtils.setField(course, "id", 1L);
-        ReflectionTestUtils.setField(course.addLecture(new Title("강의 제목")), "id", 10L);
+        ReflectionTestUtils.setField(course.addLecture(new Title("강의 제목"), "/lectures/1"), "id", 10L);
         ReflectionTestUtils.setField(course.addMission(new Title("미션 제목"), "문제 내용"), "id", 20L);
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
 
