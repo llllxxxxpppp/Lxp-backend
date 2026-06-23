@@ -46,13 +46,15 @@ public class Mission {
     @Column
     private OffsetDateTime updatedAt;
 
+    private static final int MAX_CONTENT_LENGTH = 4096;
+
     protected Mission() {}
 
     static Mission create(Course course, Title title, String content) {
         if (content == null || content.isBlank()) {
             throw new CourseException("문제 내용은 비어있을 수 없습니다.");
         }
-        if (content.length() > 4096) {
+        if (content.length() > MAX_CONTENT_LENGTH) {
             throw new CourseException("문제 내용은 4096자를 초과할 수 없습니다.");
         }
         Mission mission = new Mission();
@@ -99,7 +101,7 @@ public class Mission {
         if (content == null || content.isBlank()) {
             throw new CourseException("문제 내용은 비어있을 수 없습니다.");
         }
-        if (content.length() > 4096) {
+        if (content.length() > MAX_CONTENT_LENGTH) {
             throw new CourseException("문제 내용은 4096자를 초과할 수 없습니다.");
         }
         this.title = newTitle;

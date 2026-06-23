@@ -58,13 +58,15 @@ public class Course {
     @Column
     private OffsetDateTime updatedAt;
 
+    private static final int MAX_DESCRIPTION_LENGTH = 4096;
+
     protected Course() {}
 
     public static Course create(InstructorId instructorId, Title title, String description, String thumbnailUrl) {
         if (description == null || description.isBlank()) {
             throw new CourseException("설명은 비어있을 수 없습니다.");
         }
-        if (description.length() > 4096) {
+        if (description.length() > MAX_DESCRIPTION_LENGTH) {
             throw new CourseException("설명은 4096자를 초과할 수 없습니다.");
         }
         Course course = new Course();
@@ -124,7 +126,7 @@ public class Course {
         if (description == null || description.isBlank()) {
             throw new CourseException("설명은 비어있을 수 없습니다.");
         }
-        if (description.length() > 4096) {
+        if (description.length() > MAX_DESCRIPTION_LENGTH) {
             throw new CourseException("설명은 4096자를 초과할 수 없습니다.");
         }
         this.title = newTitle;
