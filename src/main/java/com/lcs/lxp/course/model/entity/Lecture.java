@@ -40,6 +40,9 @@ public class Lecture {
     @Column(nullable = false)
     private boolean deleted;
 
+    @Column
+    private String contentUrl;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -69,6 +72,10 @@ public class Lecture {
         return title;
     }
 
+    public String getContentUrl() {
+        return contentUrl;
+    }
+
     public boolean isDeleted() {
         return deleted;
     }
@@ -81,11 +88,15 @@ public class Lecture {
         return updatedAt;
     }
 
-    public void update(Title newTitle) {
+    public void update(Title newTitle, String contentUrl) {
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 수정할 수 없습니다.");
         }
+        if (contentUrl == null || contentUrl.isBlank()) {
+            throw new CourseException("강의 자료 URL은 비어있을 수 없습니다.");
+        }
         this.title = newTitle;
+        this.contentUrl = contentUrl;
         this.updatedAt = OffsetDateTime.now();
     }
 

@@ -47,21 +47,21 @@ class LectureTest {
     void givenPrivateCourseAndPublicLecture_whenUpdateLecture_thenSucceeds() {
         Lecture lecture = privateCourse.addLecture(new Title("강의"));
         lecture.publish();
-        assertDoesNotThrow(() -> lecture.update(new Title("수정된 강의")));
+        assertDoesNotThrow(() -> lecture.update(new Title("수정된 강의"), "/lectures/1"));
     }
 
     @Test
     @DisplayName("강좌가 비공개이면 강의가 비공개 상태여도 수정할 수 있다")
     void givenPrivateCourseAndPrivateLecture_whenUpdateLecture_thenSucceeds() {
         Lecture lecture = privateCourse.addLecture(new Title("강의"));
-        assertDoesNotThrow(() -> lecture.update(new Title("수정된 강의")));
+        assertDoesNotThrow(() -> lecture.update(new Title("수정된 강의"), "/lectures/1"));
     }
 
     @Test
     @DisplayName("강좌가 공개이고 강의가 비공개이면 수정할 수 있다")
     void givenPublicCourseAndPrivateLecture_whenUpdateLecture_thenSucceeds() {
         Lecture lecture = publicCourse.getLectures().get(0);
-        assertDoesNotThrow(() -> lecture.update(new Title("수정된 강의")));
+        assertDoesNotThrow(() -> lecture.update(new Title("수정된 강의"), "/lectures/1"));
     }
 
     @Test
@@ -69,7 +69,21 @@ class LectureTest {
     void givenPublicCourseAndPublicLecture_whenUpdateLecture_thenThrowsException() {
         Lecture lecture = publicCourse.getLectures().get(0);
         lecture.publish();
-        assertThrows(CourseException.class, () -> lecture.update(new Title("수정된 강의")));
+        assertThrows(CourseException.class, () -> lecture.update(new Title("수정된 강의"), "/lectures/1"));
+    }
+
+    @Test
+    @DisplayName("강의 자료 URL이 null이면 수정할 수 없다")
+    void givenNullContentUrl_whenUpdateLecture_thenThrowsException() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"));
+        assertThrows(CourseException.class, () -> lecture.update(new Title("수정된 강의"), null));
+    }
+
+    @Test
+    @DisplayName("강의 자료 URL이 빈 문자열이면 수정할 수 없다")
+    void givenBlankContentUrl_whenUpdateLecture_thenThrowsException() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"));
+        assertThrows(CourseException.class, () -> lecture.update(new Title("수정된 강의"), "  "));
     }
 
     @Test
