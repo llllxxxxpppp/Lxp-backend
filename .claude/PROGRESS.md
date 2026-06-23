@@ -65,3 +65,44 @@
 - 역할 조건 불충족 또는 강좌 미존재 시 `CourseException` 발생
 
 **테스트 현황**: CourseServiceTest(18) — 전체 통과
+
+---
+
+## 구독권 결제 관리 바운디드 컨텍스트
+
+### 구독권·결제 도메인 모델 + 서비스 + 컨트롤러 (2026-06-23)
+
+**구현 내용 (헥사고날 아키텍처)**
+- `subscription/domain/exception/SubscriptionException` — 구독 도메인 예외
+- `subscription/domain/model/vo/SubscriptionId`, `SubscriptionStatus` — 구독권 ID VO, 상태 enum
+- `subscription/domain/model/vo/PaymentId`, `PaymentStatus`, `PaymentInfo` — 결제 ID VO, 상태 enum, 요청 정보 @Embeddable
+- `subscription/domain/model/vo/PaymentSuccessResponse`, `PaymentFailureResponse` — 결제 결과 VO
+- `subscription/domain/model/vo/RefundInfo`, `RefundSuccessResponse`, `RefundFailureResponse` — 환불 VO
+- `subscription/domain/model/entity/Subscription` — 구독권 애그리거트 루트
+- `subscription/domain/model/entity/Payment` — 결제 애그리거트
+- `subscription/domain/repository/SubscriptionRepository`, `PaymentRepository`
+- `subscription/infrastructure/PaymentGateway` — 외부 결제 대행사 포트 인터페이스
+- `subscription/infrastructure/DummyPaymentGateway` — 더미 구현체 (항상 성공)
+- `subscription/infrastructure/PaymentAdapter` — 결제 흐름 조율 (requestPayment, requestRefund)
+- `subscription/infrastructure/PaymentResult` — 결제 결과 record
+- `subscription/application/dto/response/SubscriptionResponse`
+- `subscription/application/service/SubscriptionService` — 애플리케이션 서비스
+- `subscription/presentation/SubscriptionController` — REST 컨트롤러
+- `subscription/presentation/SubscriptionExceptionHandler` — 예외 핸들러
+
+**엔드포인트**
+- `POST /api/subscriptions` — 구독권 생성 (201): 첫 구독 무료, 이후 유료(9900원), 더미 결제 동기 처리
+- `GET /api/subscriptions/{id}` — 구독권 조회 (200)
+- `POST /api/subscriptions/{id}/cancel` — 구독권 취소 (200): 유료·14일 이내 시 자동 환불
+- `POST /api/subscriptions/reissue` — 만료 임박 구독권 재발급 (200): 관리자용 수동 트리거
+
+**핵심 불변식**
+- 구독권은 INACTIVE로 생성, 무료면 즉시 ACTIVE, 유료면 더미 결제 후 ACTIVE
+- 유효기간: 31일 / 환불 기간: 활성화 후 14일
+- 재발급: 기존 DISCARDED + 신규 생성 + 결제
+- 회원 정지 시 구독권 SUSPENDED (`suspendSubscription(memberId)` 메서드 제공)
+
+**부수 수정**
+- `course/model/entity/Mission.java` — 기존 PMD 위반(`4096` 매직 넘버) 상수로 수정
+
+**테스트 현황**: PaymentTest(15), SubscriptionTest(18), SubscriptionServiceTest(12), SubscriptionControllerTest(8) — 전체 통과, PMD 통과
