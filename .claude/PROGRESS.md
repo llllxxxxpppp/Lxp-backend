@@ -31,6 +31,8 @@
 **구현 내용**
 - `course/dto/request/CreateCourseRequest` — 강좌 생성 요청 DTO (record)
 - `course/dto/request/UpdateCourseRequest` — 강좌 수정 요청 DTO (record)
+- `course/dto/request/AddLectureRequest` — 강의 추가 요청 DTO (record)
+- `course/dto/request/AddMissionRequest` — 미션 추가 요청 DTO (record)
 - `course/dto/response/ErrorResponse` — 에러 응답 DTO (record)
 - `course/controller/CourseController` — 강좌 REST 컨트롤러 (`@RestController`)
 - `course/exception/CourseExceptionHandler` — `CourseException` → 400 Bad Request 매핑
@@ -42,6 +44,12 @@
 - `POST /api/courses/{courseId}/unpublish` — 강좌 비공개 (200)
 - `GET /api/courses/{courseId}` — 강좌 요약 조회 (200): 강좌 기본 정보만 반환 (강의·미션 제외)
 - `GET /api/courses/{courseId}/detail` — 강좌 상세 조회 (200): 강의·미션 목록 포함
+- `POST /api/courses/{courseId}/lectures` — 강의 추가 (201)
+- `POST /api/courses/{courseId}/lectures/{lectureId}/publish` — 강의 공개 (200)
+- `POST /api/courses/{courseId}/lectures/{lectureId}/unpublish` — 강의 비공개 (200)
+- `POST /api/courses/{courseId}/missions` — 미션 추가 (201)
+- `POST /api/courses/{courseId}/missions/{missionId}/publish` — 미션 공개 (200)
+- `POST /api/courses/{courseId}/missions/{missionId}/unpublish` — 미션 비공개 (200)
 
 **응답 DTO**
 - `CourseSummaryResponse` — courseId, instructorId, title, status
@@ -60,11 +68,23 @@
 **핵심 역할**
 - `createCourse`: 강사만 강좌를 생성할 수 있음, 생성 후 저장
 - `updateCourse`: 강좌 제목 수정 (공개 상태 체크는 도메인 위임)
-- `publishCourse`: 강사만 강좌를 공개할 수 있음
-- `unpublishCourse`: 강사 또는 어드민만 강좌를 비공개할 수 있음
+- `publishCourse` / `unpublishCourse`: 강사 또는 어드민 권한 검증 후 위임
+- `addLecture` / `publishLecture` / `unpublishLecture`: 강의 추가·공개·비공개
+- `addMission` / `publishMission` / `unpublishMission`: 미션 추가·공개·비공개
 - 역할 조건 불충족 또는 강좌 미존재 시 `CourseException` 발생
 
-**테스트 현황**: CourseServiceTest(18) — 전체 통과
+**테스트 현황**: CourseServiceTest(43) — 전체 통과
+
+### 강의·미션 물리 삭제 엔드포인트 제거 (2026-06-23)
+
+Lecture, Mission 엔티티는 물리적으로 삭제되어선 안 되므로 잘못 추가된 삭제 메서드를 제거함.
+
+**제거된 항목**
+- `DELETE /api/courses/{courseId}/lectures/{lectureId}` — 강의 삭제 엔드포인트
+- `DELETE /api/courses/{courseId}/missions/{missionId}` — 미션 삭제 엔드포인트
+- `CourseService.removeLecture(Long, Long)` — 강의 삭제 서비스 메서드
+- `CourseService.removeMission(Long, Long)` — 미션 삭제 서비스 메서드
+- `CourseServiceTest` 내 removeLecture·removeMission 관련 테스트 10개
 
 ---
 
