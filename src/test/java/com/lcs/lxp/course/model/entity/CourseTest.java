@@ -34,6 +34,18 @@ class CourseTest {
     }
 
     @Test
+    @DisplayName("instructorId가 null이면 강좌 생성 시 예외가 발생한다")
+    void givenNullInstructorId_whenCreateCourse_thenThrowsException() {
+        assertThrows(CourseException.class, () -> Course.create(null, title, "강좌 설명", null));
+    }
+
+    @Test
+    @DisplayName("title이 null이면 강좌 생성 시 예외가 발생한다")
+    void givenNullTitle_whenCreateCourse_thenThrowsException() {
+        assertThrows(CourseException.class, () -> Course.create(instructorId, null, "강좌 설명", null));
+    }
+
+    @Test
     @DisplayName("설명이 null이면 강좌 생성 시 예외가 발생한다")
     void givenNullDescription_whenCreateCourse_thenThrowsException() {
         assertThrows(CourseException.class, () -> Course.create(instructorId, title, null, null));
@@ -68,6 +80,13 @@ class CourseTest {
         course.publish();
 
         assertThrows(CourseException.class, () -> course.update(new Title("수정된 제목"), "수정된 설명", null));
+    }
+
+    @Test
+    @DisplayName("수정 시 title이 null이면 예외가 발생한다")
+    void givenNullTitleOnUpdate_whenUpdate_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        assertThrows(CourseException.class, () -> course.update(null, "수정된 설명", null));
     }
 
     @Test
