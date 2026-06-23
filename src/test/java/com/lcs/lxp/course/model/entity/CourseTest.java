@@ -3,10 +3,13 @@ package com.lcs.lxp.course.model.entity;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.InstructorId;
+import com.lcs.lxp.course.model.vo.LectureId;
+import com.lcs.lxp.course.model.vo.MissionId;
 import com.lcs.lxp.course.model.vo.Title;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -157,6 +160,88 @@ class CourseTest {
         course.publish();
 
         assertThrows(CourseException.class, () -> course.addMission(new Title("미션2"), "문제 내용"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강의를 Course를 통해 수정하면 예외가 발생한다")
+    void givenLectureNotInCourse_whenUpdateLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        assertThrows(CourseException.class,
+                () -> course.updateLecture(new LectureId(999L), new Title("수정된 강의"), "/lectures/1"));
+    }
+
+    @Test
+    @DisplayName("Course를 통해 강의를 수정할 수 있다")
+    void givenLectureInCourse_whenUpdateLectureViaCourse_thenSucceeds() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"));
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+
+        assertDoesNotThrow(() -> course.updateLecture(new LectureId(10L), new Title("수정된 강의"), "/lectures/1"));
+        assertEquals("수정된 강의", course.getLectures().get(0).getTitle().getValue());
+    }
+
+    @Test
+    @DisplayName("Course를 통해 강의를 공개할 수 있다")
+    void givenLectureInCourse_whenPublishLectureViaCourse_thenStatusIsPublic() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"));
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+
+        course.publishLecture(new LectureId(10L));
+        assertEquals(ContentStatus.PUBLIC, course.getLectures().get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("Course를 통해 강의를 비공개할 수 있다")
+    void givenLectureInCourse_whenUnpublishLectureViaCourse_thenDeleted() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"));
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+
+        course.unpublishLecture(new LectureId(10L));
+        assertTrue(course.getLectures().get(0).isDeleted());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 미션을 Course를 통해 수정하면 예외가 발생한다")
+    void givenMissionNotInCourse_whenUpdateMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        assertThrows(CourseException.class,
+                () -> course.updateMission(new MissionId(999L), new Title("수정된 미션"), "수정된 문제"));
+    }
+
+    @Test
+    @DisplayName("Course를 통해 미션을 수정할 수 있다")
+    void givenMissionInCourse_whenUpdateMissionViaCourse_thenSucceeds() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+
+        assertDoesNotThrow(() -> course.updateMission(new MissionId(20L), new Title("수정된 미션"), "수정된 문제"));
+        assertEquals("수정된 미션", course.getMissions().get(0).getTitle().getValue());
+    }
+
+    @Test
+    @DisplayName("Course를 통해 미션을 공개할 수 있다")
+    void givenMissionInCourse_whenPublishMissionViaCourse_thenStatusIsPublic() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+
+        course.publishMission(new MissionId(20L));
+        assertEquals(ContentStatus.PUBLIC, course.getMissions().get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("Course를 통해 미션을 비공개할 수 있다")
+    void givenMissionInCourse_whenUnpublishMissionViaCourse_thenDeleted() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+
+        course.unpublishMission(new MissionId(20L));
+        assertTrue(course.getMissions().get(0).isDeleted());
     }
 
     @Test

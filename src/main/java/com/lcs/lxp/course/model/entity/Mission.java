@@ -71,6 +71,10 @@ public class Mission {
         return new MissionId(id);
     }
 
+    Long getRawId() {
+        return id;
+    }
+
     public ContentStatus getStatus() {
         return status;
     }
@@ -95,7 +99,7 @@ public class Mission {
         return updatedAt;
     }
 
-    public void update(Title newTitle, String content) {
+    void update(Title newTitle, String content) {
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 미션을 수정할 수 없습니다.");
         }
@@ -110,12 +114,12 @@ public class Mission {
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public void publish() {
+    void publish() {
         this.status = ContentStatus.PUBLIC;
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public void unpublish() {
+    void unpublish() {
         this.status = ContentStatus.PRIVATE;
         this.deleted = true;
         this.updatedAt = OffsetDateTime.now();

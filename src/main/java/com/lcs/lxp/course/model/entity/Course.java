@@ -4,6 +4,8 @@ import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.CourseId;
 import com.lcs.lxp.course.model.vo.InstructorId;
+import com.lcs.lxp.course.model.vo.LectureId;
+import com.lcs.lxp.course.model.vo.MissionId;
 import com.lcs.lxp.course.model.vo.Title;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -154,6 +156,44 @@ public class Course {
         Mission mission = Mission.create(this, missionTitle, content);
         missions.add(mission);
         return mission;
+    }
+
+    public void updateLecture(LectureId lectureId, Title newTitle, String contentUrl) {
+        findLecture(lectureId).update(newTitle, contentUrl);
+    }
+
+    public void publishLecture(LectureId lectureId) {
+        findLecture(lectureId).publish();
+    }
+
+    public void unpublishLecture(LectureId lectureId) {
+        findLecture(lectureId).unpublish();
+    }
+
+    public void updateMission(MissionId missionId, Title newTitle, String content) {
+        findMission(missionId).update(newTitle, content);
+    }
+
+    public void publishMission(MissionId missionId) {
+        findMission(missionId).publish();
+    }
+
+    public void unpublishMission(MissionId missionId) {
+        findMission(missionId).unpublish();
+    }
+
+    private Lecture findLecture(LectureId lectureId) {
+        return lectures.stream()
+                .filter(l -> lectureId.value().equals(l.getRawId()))
+                .findFirst()
+                .orElseThrow(() -> new CourseException("강의를 찾을 수 없습니다."));
+    }
+
+    private Mission findMission(MissionId missionId) {
+        return missions.stream()
+                .filter(m -> missionId.value().equals(m.getRawId()))
+                .findFirst()
+                .orElseThrow(() -> new CourseException("미션을 찾을 수 없습니다."));
     }
 
     public void publish() {
