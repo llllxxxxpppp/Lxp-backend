@@ -3,7 +3,8 @@
     "allow": [
       "Bash(./gradlew test *)",
       "Bash(./gradlew pmdMain *)",
-      "Bash(./gradlew check *)"
+      "Bash(./gradlew check *)",
+      "Bash(./gradlew build *)"
     ]
   }
 }

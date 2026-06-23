@@ -16,6 +16,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,6 +47,12 @@ public class Course {
     @Column(nullable = false)
     private boolean deleted;
 
+    @Column(nullable = false, updatable = false)
+    private OffsetDateTime createdAt;
+
+    @Column
+    private OffsetDateTime updatedAt;
+
     protected Course() {}
 
     public static Course create(InstructorId instructorId, Title title) {
@@ -53,6 +60,7 @@ public class Course {
         course.instructorId = instructorId.value();
         course.title = title;
         course.status = ContentStatus.PRIVATE;
+        course.createdAt = OffsetDateTime.now();
         return course;
     }
 
@@ -76,6 +84,14 @@ public class Course {
         return deleted;
     }
 
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public OffsetDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
     public List<Lecture> getLectures() {
         return List.copyOf(lectures);
     }
@@ -89,6 +105,7 @@ public class Course {
             throw new CourseException("공개 상태에서는 강좌를 수정할 수 없습니다.");
         }
         this.title = newTitle;
+        this.updatedAt = OffsetDateTime.now();
     }
 
     public Lecture addLecture(Title lectureTitle) {
@@ -116,10 +133,12 @@ public class Course {
             throw new CourseException("강의와 미션을 1개 이상 포함해야 공개할 수 있습니다.");
         }
         this.status = ContentStatus.PUBLIC;
+        this.updatedAt = OffsetDateTime.now();
     }
 
     public void unpublish() {
         this.status = ContentStatus.PRIVATE;
         this.deleted = true;
+        this.updatedAt = OffsetDateTime.now();
     }
 }
