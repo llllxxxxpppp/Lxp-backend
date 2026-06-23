@@ -61,14 +61,10 @@ Spring Boot 3.5 기반의 Java 17 웹 애플리케이션. H2 인메모리 데이
 
 ## 주요 문서
 
+- `.claude/rules/**.md`: 작업 시 반드시 숙지해야 하는 규칙들을 명세한 문서들이다.
 - `.claude/ARCHITECTURE.md`: 프로젝트 및 도메인 패키지 구조를 설명한 문서이다.
 - `.claude/DOMAIN.md`: 필요 도메인별로 비즈니스 규칙 (불변식) 과 예상 클래스별로 책임을 명시한 문서들의 요약 문서이다.
 - `.claude/PROGRESS.md`: 구현이 완료된 기능들이 요약되어있는 문서이다.
-
-## 구현 규칙
-
-- Controller는 `@RestController`를 이용하여 구현한다.
-- 모든 Service 클래스는 상위 계층과 데이터를 주고받을 때 반드시 DTO를 이용하도록 구현한다.
 
 ## 작업 절자
 
