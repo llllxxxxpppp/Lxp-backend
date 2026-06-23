@@ -37,9 +37,6 @@ public class Mission {
     @Column(nullable = false)
     private ContentStatus status;
 
-    @Column(nullable = false)
-    private boolean deleted;
-
     @Column(columnDefinition = "TEXT", length = 4096)
     private String content;
 
@@ -49,13 +46,15 @@ public class Mission {
     @Column
     private OffsetDateTime updatedAt;
 
+    private static final int MAX_CONTENT_LENGTH = 4096;
+
     protected Mission() {}
 
     static Mission create(Course course, Title title, String content) {
         if (content == null || content.isBlank()) {
             throw new CourseException("문제 내용은 비어있을 수 없습니다.");
         }
-        if (content.length() > 4096) {
+        if (content.length() > MAX_CONTENT_LENGTH) {
             throw new CourseException("문제 내용은 4096자를 초과할 수 없습니다.");
         }
         Mission mission = new Mission();
@@ -71,6 +70,10 @@ public class Mission {
         return new MissionId(id);
     }
 
+    Long getRawId() {
+        return id;
+    }
+
     public ContentStatus getStatus() {
         return status;
     }
@@ -83,10 +86,6 @@ public class Mission {
         return content;
     }
 
-    public boolean isDeleted() {
-        return deleted;
-    }
-
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -95,14 +94,14 @@ public class Mission {
         return updatedAt;
     }
 
-    public void update(Title newTitle, String content) {
+    void update(Title newTitle, String content) {
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 미션을 수정할 수 없습니다.");
         }
         if (content == null || content.isBlank()) {
             throw new CourseException("문제 내용은 비어있을 수 없습니다.");
         }
-        if (content.length() > 4096) {
+        if (content.length() > MAX_CONTENT_LENGTH) {
             throw new CourseException("문제 내용은 4096자를 초과할 수 없습니다.");
         }
         this.title = newTitle;
@@ -110,14 +109,13 @@ public class Mission {
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public void publish() {
+    void publish() {
         this.status = ContentStatus.PUBLIC;
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public void unpublish() {
+    void unpublish() {
         this.status = ContentStatus.PRIVATE;
-        this.deleted = true;
         this.updatedAt = OffsetDateTime.now();
     }
 }

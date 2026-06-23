@@ -8,6 +8,8 @@ public record CourseDetailResponse(
         Long instructorId,
         String title,
         String status,
+        String description,
+        String thumbnailUrl,
         List<LectureResponse> lectures,
         List<MissionResponse> missions) {
 
@@ -23,6 +25,8 @@ public record CourseDetailResponse(
                 course.getInstructorId().value(),
                 course.getTitle().getValue(),
                 course.getStatus().name(),
+                course.getDescription(),
+                course.getThumbnailUrl(),
                 lectures,
                 missions);
     }

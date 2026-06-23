@@ -10,9 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MissionTest {
 
@@ -21,9 +19,9 @@ class MissionTest {
 
     @BeforeEach
     void setUp() {
-        privateCourse = Course.create(new InstructorId(1L), new Title("강좌"));
-        publicCourse = Course.create(new InstructorId(1L), new Title("강좌"));
-        publicCourse.addLecture(new Title("강의"));
+        privateCourse = Course.create(new InstructorId(1L), new Title("강좌"), "강좌 설명", null);
+        publicCourse = Course.create(new InstructorId(1L), new Title("강좌"), "강좌 설명", null);
+        publicCourse.addLecture(new Title("강의"), "/lectures/1");
         publicCourse.addMission(new Title("미션"), "문제 내용");
         publicCourse.publish();
     }
@@ -33,13 +31,6 @@ class MissionTest {
     void givenPrivateCourse_whenAddMission_thenStatusIsPrivate() {
         Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
         assertEquals(ContentStatus.PRIVATE, mission.getStatus());
-    }
-
-    @Test
-    @DisplayName("미션 생성 시 삭제 상태가 아니다")
-    void givenPrivateCourse_whenAddMission_thenNotDeleted() {
-        Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
-        assertFalse(mission.isDeleted());
     }
 
     @Test
@@ -122,13 +113,12 @@ class MissionTest {
     }
 
     @Test
-    @DisplayName("미션을 비공개하면 삭제 상태가 된다")
-    void givenPublicMission_whenUnpublish_thenStatusIsPrivateAndDeleted() {
+    @DisplayName("미션을 비공개하면 상태가 PRIVATE이 된다")
+    void givenPublicMission_whenUnpublish_thenStatusIsPrivate() {
         Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
         mission.publish();
         mission.unpublish();
 
         assertEquals(ContentStatus.PRIVATE, mission.getStatus());
-        assertTrue(mission.isDeleted());
     }
 }

@@ -38,9 +38,6 @@ public class Lecture {
     private ContentStatus status;
 
     @Column(nullable = false)
-    private boolean deleted;
-
-    @Column
     private String contentUrl;
 
     @Column(nullable = false, updatable = false)
@@ -51,17 +48,25 @@ public class Lecture {
 
     protected Lecture() {}
 
-    static Lecture create(Course course, Title title) {
+    static Lecture create(Course course, Title title, String contentUrl) {
+        if (contentUrl == null || contentUrl.isBlank()) {
+            throw new CourseException("강의 자료 URL은 비어있을 수 없습니다.");
+        }
         Lecture lecture = new Lecture();
         lecture.course = course;
         lecture.title = title;
         lecture.status = ContentStatus.PRIVATE;
+        lecture.contentUrl = contentUrl;
         lecture.createdAt = OffsetDateTime.now();
         return lecture;
     }
 
     public LectureId getId() {
         return new LectureId(id);
+    }
+
+    Long getRawId() {
+        return id;
     }
 
     public ContentStatus getStatus() {
@@ -76,10 +81,6 @@ public class Lecture {
         return contentUrl;
     }
 
-    public boolean isDeleted() {
-        return deleted;
-    }
-
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -88,7 +89,7 @@ public class Lecture {
         return updatedAt;
     }
 
-    public void update(Title newTitle, String contentUrl) {
+    void update(Title newTitle, String contentUrl) {
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 수정할 수 없습니다.");
         }
@@ -100,14 +101,13 @@ public class Lecture {
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public void publish() {
+    void publish() {
         this.status = ContentStatus.PUBLIC;
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public void unpublish() {
+    void unpublish() {
         this.status = ContentStatus.PRIVATE;
-        this.deleted = true;
         this.updatedAt = OffsetDateTime.now();
     }
 }

@@ -1,5 +1,7 @@
 package com.lcs.lxp.course.controller;
 
+import com.lcs.lxp.course.dto.request.AddLectureRequest;
+import com.lcs.lxp.course.dto.request.AddMissionRequest;
 import com.lcs.lxp.course.dto.request.CreateCourseRequest;
 import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
@@ -8,6 +10,7 @@ import com.lcs.lxp.course.service.CourseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,7 +44,7 @@ public class CourseController {
             @RequestBody CreateCourseRequest request,
             Authentication authentication) {
         Long instructorId = Long.parseLong(authentication.getName());
-        courseService.createCourse(instructorId, request.title());
+        courseService.createCourse(instructorId, request.title(), request.description(), request.thumbnailUrl());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -49,7 +52,7 @@ public class CourseController {
     public ResponseEntity<Void> updateCourse(
             @PathVariable Long courseId,
             @RequestBody UpdateCourseRequest request) {
-        courseService.updateCourse(courseId, request.title());
+        courseService.updateCourse(courseId, request.title(), request.description(), request.thumbnailUrl());
         return ResponseEntity.ok().build();
     }
 
@@ -62,6 +65,70 @@ public class CourseController {
     @PostMapping("/{courseId}/unpublish")
     public ResponseEntity<Void> unpublishCourse(@PathVariable Long courseId) {
         courseService.unpublishCourse(courseId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{courseId}/lectures")
+    public ResponseEntity<Void> addLecture(
+            @PathVariable Long courseId,
+            @RequestBody AddLectureRequest request) {
+        courseService.addLecture(courseId, request.title(), request.contentUrl());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @DeleteMapping("/{courseId}/lectures/{lectureId}")
+    public ResponseEntity<Void> removeLecture(
+            @PathVariable Long courseId,
+            @PathVariable Long lectureId) {
+        courseService.removeLecture(courseId, lectureId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{courseId}/lectures/{lectureId}/publish")
+    public ResponseEntity<Void> publishLecture(
+            @PathVariable Long courseId,
+            @PathVariable Long lectureId) {
+        courseService.publishLecture(courseId, lectureId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{courseId}/lectures/{lectureId}/unpublish")
+    public ResponseEntity<Void> unpublishLecture(
+            @PathVariable Long courseId,
+            @PathVariable Long lectureId) {
+        courseService.unpublishLecture(courseId, lectureId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{courseId}/missions")
+    public ResponseEntity<Void> addMission(
+            @PathVariable Long courseId,
+            @RequestBody AddMissionRequest request) {
+        courseService.addMission(courseId, request.title(), request.content());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @DeleteMapping("/{courseId}/missions/{missionId}")
+    public ResponseEntity<Void> removeMission(
+            @PathVariable Long courseId,
+            @PathVariable Long missionId) {
+        courseService.removeMission(courseId, missionId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{courseId}/missions/{missionId}/publish")
+    public ResponseEntity<Void> publishMission(
+            @PathVariable Long courseId,
+            @PathVariable Long missionId) {
+        courseService.publishMission(courseId, missionId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{courseId}/missions/{missionId}/unpublish")
+    public ResponseEntity<Void> unpublishMission(
+            @PathVariable Long courseId,
+            @PathVariable Long missionId) {
+        courseService.unpublishMission(courseId, missionId);
         return ResponseEntity.ok().build();
     }
 }
