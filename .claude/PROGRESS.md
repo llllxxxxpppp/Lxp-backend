@@ -26,6 +26,21 @@
 
 **테스트 현황**: TitleTest(6), CourseTest(12), LectureTest(8), MissionTest(8) — 전체 통과
 
+### 강좌 컨트롤러 요청 검증 (2026-06-23)
+
+**구현 내용**
+- Request DTO에 Bean Validation 어노테이션 추가 (`@NotBlank`, `@Size`)
+  - `CreateCourseRequest`: `title`(@NotBlank, max=100), `description`(@NotBlank, max=4096)
+  - `UpdateCourseRequest`: `title`(@NotBlank, max=100), `description`(@NotBlank, max=4096)
+  - `AddLectureRequest`: `title`(@NotBlank, max=100), `contentUrl`(@NotBlank)
+  - `AddMissionRequest`: `title`(@NotBlank, max=100), `content`(@NotBlank, max=4096)
+- `CourseController` 메서드 파라미터에 `@Valid` 추가 (createCourse, updateCourse, addLecture, addMission)
+- `CourseExceptionHandler`에 `MethodArgumentNotValidException` 핸들러 추가 → 첫 번째 필드 오류 메시지로 400 반환
+
+**테스트 현황**: CourseControllerTest(28) — 전체 통과 (기존 12 + 검증 실패 16 추가)
+
+---
+
 ### 강좌 컨트롤러 (2026-06-23)
 
 **구현 내용**
