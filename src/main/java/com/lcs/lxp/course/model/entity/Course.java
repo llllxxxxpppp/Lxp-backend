@@ -151,6 +151,20 @@ public class Course {
         return mission;
     }
 
+    public void removeLecture(LectureId lectureId) {
+        if (status == ContentStatus.PUBLIC) {
+            throw new CourseException("공개 상태에서는 강의를 삭제할 수 없습니다.");
+        }
+        lectures.remove(findLecture(lectureId));
+    }
+
+    public void removeMission(MissionId missionId) {
+        if (status == ContentStatus.PUBLIC) {
+            throw new CourseException("공개 상태에서는 미션을 삭제할 수 없습니다.");
+        }
+        missions.remove(findMission(missionId));
+    }
+
     public void updateLecture(LectureId lectureId, Title newTitle, String contentUrl) {
         findLecture(lectureId).update(newTitle, contentUrl);
     }

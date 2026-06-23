@@ -212,4 +212,66 @@ class CourseTest {
         assertEquals(ContentStatus.PUBLIC, course.getMissions().get(0).getStatus());
     }
 
+    @Test
+    @DisplayName("비공개 강좌에서 강의를 삭제할 수 있다")
+    void givenPrivateCourse_whenRemoveLecture_thenLectureIsRemoved() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+
+        course.removeLecture(new LectureId(10L));
+        assertEquals(0, course.getLectures().size());
+    }
+
+    @Test
+    @DisplayName("공개 강좌에서 강의를 삭제하면 예외가 발생한다")
+    void givenPublicCourse_whenRemoveLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        course.addMission(new Title("미션"), "문제 내용");
+        course.publish();
+
+        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(10L)));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강의를 삭제하면 예외가 발생한다")
+    void givenNonExistentLecture_whenRemoveLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+
+        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(999L)));
+    }
+
+    @Test
+    @DisplayName("비공개 강좌에서 미션을 삭제할 수 있다")
+    void givenPrivateCourse_whenRemoveMission_thenMissionIsRemoved() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+
+        course.removeMission(new MissionId(20L));
+        assertEquals(0, course.getMissions().size());
+    }
+
+    @Test
+    @DisplayName("공개 강좌에서 미션을 삭제하면 예외가 발생한다")
+    void givenPublicCourse_whenRemoveMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        course.addLecture(new Title("강의"), "/lectures/1");
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+        course.publish();
+
+        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(20L)));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 미션을 삭제하면 예외가 발생한다")
+    void givenNonExistentMission_whenRemoveMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+
+        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(999L)));
+    }
+
 }

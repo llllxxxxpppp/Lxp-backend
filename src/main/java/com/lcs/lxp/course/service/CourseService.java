@@ -5,6 +5,8 @@ import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.entity.Course;
 import com.lcs.lxp.course.model.vo.InstructorId;
+import com.lcs.lxp.course.model.vo.LectureId;
+import com.lcs.lxp.course.model.vo.MissionId;
 import com.lcs.lxp.course.model.vo.Title;
 import com.lcs.lxp.course.repository.CourseRepository;
 import com.lcs.lxp.member.model.MemberRole;
@@ -54,6 +56,46 @@ public class CourseService {
         requireRole(MemberRole.INSTRUCTOR, MemberRole.ADMIN);
         Course course = getCourse(courseId);
         course.unpublish();
+    }
+
+    public void addLecture(Long courseId, String title, String contentUrl) {
+        requireRole(MemberRole.INSTRUCTOR);
+        getCourse(courseId).addLecture(new Title(title), contentUrl);
+    }
+
+    public void removeLecture(Long courseId, Long lectureId) {
+        requireRole(MemberRole.INSTRUCTOR, MemberRole.ADMIN);
+        getCourse(courseId).removeLecture(new LectureId(lectureId));
+    }
+
+    public void publishLecture(Long courseId, Long lectureId) {
+        requireRole(MemberRole.INSTRUCTOR);
+        getCourse(courseId).publishLecture(new LectureId(lectureId));
+    }
+
+    public void unpublishLecture(Long courseId, Long lectureId) {
+        requireRole(MemberRole.INSTRUCTOR, MemberRole.ADMIN);
+        getCourse(courseId).unpublishLecture(new LectureId(lectureId));
+    }
+
+    public void addMission(Long courseId, String title, String content) {
+        requireRole(MemberRole.INSTRUCTOR);
+        getCourse(courseId).addMission(new Title(title), content);
+    }
+
+    public void removeMission(Long courseId, Long missionId) {
+        requireRole(MemberRole.INSTRUCTOR, MemberRole.ADMIN);
+        getCourse(courseId).removeMission(new MissionId(missionId));
+    }
+
+    public void publishMission(Long courseId, Long missionId) {
+        requireRole(MemberRole.INSTRUCTOR);
+        getCourse(courseId).publishMission(new MissionId(missionId));
+    }
+
+    public void unpublishMission(Long courseId, Long missionId) {
+        requireRole(MemberRole.INSTRUCTOR, MemberRole.ADMIN);
+        getCourse(courseId).unpublishMission(new MissionId(missionId));
     }
 
     private Course getCourse(Long courseId) {

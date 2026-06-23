@@ -4,8 +4,12 @@ import com.lcs.lxp.course.dto.response.CourseDetailResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.entity.Course;
+import com.lcs.lxp.course.model.entity.Lecture;
+import com.lcs.lxp.course.model.entity.Mission;
 import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.InstructorId;
+import com.lcs.lxp.course.model.vo.LectureId;
+import com.lcs.lxp.course.model.vo.MissionId;
 import com.lcs.lxp.course.model.vo.Title;
 import com.lcs.lxp.course.repository.CourseRepository;
 import com.lcs.lxp.member.model.MemberRole;
@@ -46,12 +50,16 @@ class CourseServiceTest {
     @BeforeEach
     void setUp() {
         privateCourse = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
-        privateCourse.addLecture(new Title("강의"), "/lectures/1");
-        privateCourse.addMission(new Title("미션"), "문제 내용");
+        Lecture privateLecture = privateCourse.addLecture(new Title("강의"), "/lectures/1");
+        ReflectionTestUtils.setField(privateLecture, "id", 10L);
+        Mission privateMission = privateCourse.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(privateMission, "id", 20L);
 
         publishedCourse = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
-        publishedCourse.addLecture(new Title("강의"), "/lectures/1");
-        publishedCourse.addMission(new Title("미션"), "문제 내용");
+        Lecture publishedLecture = publishedCourse.addLecture(new Title("강의"), "/lectures/1");
+        ReflectionTestUtils.setField(publishedLecture, "id", 10L);
+        Mission publishedMission = publishedCourse.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(publishedMission, "id", 20L);
         publishedCourse.publish();
     }
 
@@ -263,5 +271,343 @@ class CourseServiceTest {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(CourseException.class, () -> courseService.unpublishCourse(999L));
+    }
+
+    // --- addLecture ---
+
+    @Test
+    @DisplayName("강사가 강의를 추가하면 강의가 추가된다")
+    void givenInstructorRole_whenAddLecture_thenLectureIsAdded() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.addLecture(1L, "새 강의", "/lectures/2");
+
+        assertEquals(2, privateCourse.getLectures().size());
+    }
+
+    @Test
+    @DisplayName("일반 회원이 강의를 추가하면 예외가 발생한다")
+    void givenMemberRole_whenAddLecture_thenThrowsException() {
+        authenticate(MemberRole.MEMBER);
+
+        assertThrows(CourseException.class, () -> courseService.addLecture(1L, "새 강의", "/lectures/2"));
+    }
+
+    @Test
+    @DisplayName("어드민이 강의를 추가하면 예외가 발생한다")
+    void givenAdminRole_whenAddLecture_thenThrowsException() {
+        authenticate(MemberRole.ADMIN);
+
+        assertThrows(CourseException.class, () -> courseService.addLecture(1L, "새 강의", "/lectures/2"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌에 강의를 추가하면 예외가 발생한다")
+    void givenNonExistentCourse_whenAddLecture_thenThrowsException() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.addLecture(999L, "새 강의", "/lectures/2"));
+    }
+
+    // --- removeLecture ---
+
+    @Test
+    @DisplayName("강사가 강의를 삭제하면 강의가 제거된다")
+    void givenInstructorRole_whenRemoveLecture_thenLectureIsRemoved() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.removeLecture(1L, 10L);
+
+        assertEquals(0, privateCourse.getLectures().size());
+    }
+
+    @Test
+    @DisplayName("어드민이 강의를 삭제하면 강의가 제거된다")
+    void givenAdminRole_whenRemoveLecture_thenLectureIsRemoved() {
+        authenticate(MemberRole.ADMIN);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.removeLecture(1L, 10L);
+
+        assertEquals(0, privateCourse.getLectures().size());
+    }
+
+    @Test
+    @DisplayName("일반 회원이 강의를 삭제하면 예외가 발생한다")
+    void givenMemberRole_whenRemoveLecture_thenThrowsException() {
+        authenticate(MemberRole.MEMBER);
+
+        assertThrows(CourseException.class, () -> courseService.removeLecture(1L, 10L));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌에서 강의를 삭제하면 예외가 발생한다")
+    void givenNonExistentCourse_whenRemoveLecture_thenThrowsException() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.removeLecture(999L, 10L));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강의를 삭제하면 예외가 발생한다")
+    void givenNonExistentLecture_whenRemoveLecture_thenThrowsException() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseException.class, () -> courseService.removeLecture(1L, 999L));
+    }
+
+    // --- publishLecture ---
+
+    @Test
+    @DisplayName("강사가 강의를 공개하면 상태가 PUBLIC이 된다")
+    void givenInstructorRole_whenPublishLecture_thenStatusIsPublic() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.publishLecture(1L, 10L);
+
+        assertEquals(ContentStatus.PUBLIC, privateCourse.getLectures().get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("어드민이 강의를 공개하면 예외가 발생한다")
+    void givenAdminRole_whenPublishLecture_thenThrowsException() {
+        authenticate(MemberRole.ADMIN);
+
+        assertThrows(CourseException.class, () -> courseService.publishLecture(1L, 10L));
+    }
+
+    @Test
+    @DisplayName("일반 회원이 강의를 공개하면 예외가 발생한다")
+    void givenMemberRole_whenPublishLecture_thenThrowsException() {
+        authenticate(MemberRole.MEMBER);
+
+        assertThrows(CourseException.class, () -> courseService.publishLecture(1L, 10L));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌의 강의를 공개하면 예외가 발생한다")
+    void givenNonExistentCourse_whenPublishLecture_thenThrowsException() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.publishLecture(999L, 10L));
+    }
+
+    // --- unpublishLecture ---
+
+    @Test
+    @DisplayName("강사가 강의를 비공개하면 상태가 PRIVATE이 된다")
+    void givenInstructorRole_whenUnpublishLecture_thenStatusIsPrivate() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        privateCourse.publishLecture(new LectureId(10L));
+
+        courseService.unpublishLecture(1L, 10L);
+
+        assertEquals(ContentStatus.PRIVATE, privateCourse.getLectures().get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("어드민이 강의를 비공개하면 상태가 PRIVATE이 된다")
+    void givenAdminRole_whenUnpublishLecture_thenStatusIsPrivate() {
+        authenticate(MemberRole.ADMIN);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        privateCourse.publishLecture(new LectureId(10L));
+
+        courseService.unpublishLecture(1L, 10L);
+
+        assertEquals(ContentStatus.PRIVATE, privateCourse.getLectures().get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("일반 회원이 강의를 비공개하면 예외가 발생한다")
+    void givenMemberRole_whenUnpublishLecture_thenThrowsException() {
+        authenticate(MemberRole.MEMBER);
+
+        assertThrows(CourseException.class, () -> courseService.unpublishLecture(1L, 10L));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌의 강의를 비공개하면 예외가 발생한다")
+    void givenNonExistentCourse_whenUnpublishLecture_thenThrowsException() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.unpublishLecture(999L, 10L));
+    }
+
+    // --- addMission ---
+
+    @Test
+    @DisplayName("강사가 미션을 추가하면 미션이 추가된다")
+    void givenInstructorRole_whenAddMission_thenMissionIsAdded() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.addMission(1L, "새 미션", "문제 내용");
+
+        assertEquals(2, privateCourse.getMissions().size());
+    }
+
+    @Test
+    @DisplayName("일반 회원이 미션을 추가하면 예외가 발생한다")
+    void givenMemberRole_whenAddMission_thenThrowsException() {
+        authenticate(MemberRole.MEMBER);
+
+        assertThrows(CourseException.class, () -> courseService.addMission(1L, "새 미션", "문제 내용"));
+    }
+
+    @Test
+    @DisplayName("어드민이 미션을 추가하면 예외가 발생한다")
+    void givenAdminRole_whenAddMission_thenThrowsException() {
+        authenticate(MemberRole.ADMIN);
+
+        assertThrows(CourseException.class, () -> courseService.addMission(1L, "새 미션", "문제 내용"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌에 미션을 추가하면 예외가 발생한다")
+    void givenNonExistentCourse_whenAddMission_thenThrowsException() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.addMission(999L, "새 미션", "문제 내용"));
+    }
+
+    // --- removeMission ---
+
+    @Test
+    @DisplayName("강사가 미션을 삭제하면 미션이 제거된다")
+    void givenInstructorRole_whenRemoveMission_thenMissionIsRemoved() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.removeMission(1L, 20L);
+
+        assertEquals(0, privateCourse.getMissions().size());
+    }
+
+    @Test
+    @DisplayName("어드민이 미션을 삭제하면 미션이 제거된다")
+    void givenAdminRole_whenRemoveMission_thenMissionIsRemoved() {
+        authenticate(MemberRole.ADMIN);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.removeMission(1L, 20L);
+
+        assertEquals(0, privateCourse.getMissions().size());
+    }
+
+    @Test
+    @DisplayName("일반 회원이 미션을 삭제하면 예외가 발생한다")
+    void givenMemberRole_whenRemoveMission_thenThrowsException() {
+        authenticate(MemberRole.MEMBER);
+
+        assertThrows(CourseException.class, () -> courseService.removeMission(1L, 20L));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌에서 미션을 삭제하면 예외가 발생한다")
+    void givenNonExistentCourse_whenRemoveMission_thenThrowsException() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.removeMission(999L, 20L));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 미션을 삭제하면 예외가 발생한다")
+    void givenNonExistentMission_whenRemoveMission_thenThrowsException() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseException.class, () -> courseService.removeMission(1L, 999L));
+    }
+
+    // --- publishMission ---
+
+    @Test
+    @DisplayName("강사가 미션을 공개하면 상태가 PUBLIC이 된다")
+    void givenInstructorRole_whenPublishMission_thenStatusIsPublic() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.publishMission(1L, 20L);
+
+        assertEquals(ContentStatus.PUBLIC, privateCourse.getMissions().get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("어드민이 미션을 공개하면 예외가 발생한다")
+    void givenAdminRole_whenPublishMission_thenThrowsException() {
+        authenticate(MemberRole.ADMIN);
+
+        assertThrows(CourseException.class, () -> courseService.publishMission(1L, 20L));
+    }
+
+    @Test
+    @DisplayName("일반 회원이 미션을 공개하면 예외가 발생한다")
+    void givenMemberRole_whenPublishMission_thenThrowsException() {
+        authenticate(MemberRole.MEMBER);
+
+        assertThrows(CourseException.class, () -> courseService.publishMission(1L, 20L));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌의 미션을 공개하면 예외가 발생한다")
+    void givenNonExistentCourse_whenPublishMission_thenThrowsException() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.publishMission(999L, 20L));
+    }
+
+    // --- unpublishMission ---
+
+    @Test
+    @DisplayName("강사가 미션을 비공개하면 상태가 PRIVATE이 된다")
+    void givenInstructorRole_whenUnpublishMission_thenStatusIsPrivate() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        privateCourse.publishMission(new MissionId(20L));
+
+        courseService.unpublishMission(1L, 20L);
+
+        assertEquals(ContentStatus.PRIVATE, privateCourse.getMissions().get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("어드민이 미션을 비공개하면 상태가 PRIVATE이 된다")
+    void givenAdminRole_whenUnpublishMission_thenStatusIsPrivate() {
+        authenticate(MemberRole.ADMIN);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        privateCourse.publishMission(new MissionId(20L));
+
+        courseService.unpublishMission(1L, 20L);
+
+        assertEquals(ContentStatus.PRIVATE, privateCourse.getMissions().get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("일반 회원이 미션을 비공개하면 예외가 발생한다")
+    void givenMemberRole_whenUnpublishMission_thenThrowsException() {
+        authenticate(MemberRole.MEMBER);
+
+        assertThrows(CourseException.class, () -> courseService.unpublishMission(1L, 20L));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌의 미션을 비공개하면 예외가 발생한다")
+    void givenNonExistentCourse_whenUnpublishMission_thenThrowsException() {
+        authenticate(MemberRole.INSTRUCTOR);
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.unpublishMission(999L, 20L));
     }
 }
