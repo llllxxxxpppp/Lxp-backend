@@ -6,6 +6,7 @@ import com.lcs.lxp.course.dto.request.AddMissionRequest;
 import com.lcs.lxp.course.dto.request.CreateCourseRequest;
 import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
+import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.dto.response.LectureResponse;
 import com.lcs.lxp.course.dto.response.MissionResponse;
@@ -55,6 +56,57 @@ class CourseControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    // --- getCourses ---
+
+    @Test
+    @WithMockUser
+    @DisplayName("키워드 없이 강좌 목록 조회 시 200과 페이지 정보를 반환한다")
+    void givenNoKeyword_whenGetCourses_thenReturns200WithPage() throws Exception {
+        CourseSummaryResponse summary = new CourseSummaryResponse(1L, 1L, "강좌 제목", "PUBLIC", null);
+        CoursePageResponse pageResponse = new CoursePageResponse(List.of(summary), 0, 10, 1L, 1, true);
+        when(courseService.getCourses(null, 0, 10)).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/courses"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.courses[0].courseId").value(1L))
+                .andExpect(jsonPath("$.courses[0].title").value("강좌 제목"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        verify(courseService).getCourses(null, 0, 10);
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("키워드로 강좌 목록 검색 시 200과 검색된 페이지 정보를 반환한다")
+    void givenKeyword_whenGetCourses_thenReturns200WithFilteredPage() throws Exception {
+        CourseSummaryResponse summary = new CourseSummaryResponse(1L, 1L, "Java 강좌", "PUBLIC", null);
+        CoursePageResponse pageResponse = new CoursePageResponse(List.of(summary), 0, 10, 1L, 1, true);
+        when(courseService.getCourses("Java", 0, 10)).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/courses").param("keyword", "Java"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.courses[0].title").value("Java 강좌"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        verify(courseService).getCourses("Java", 0, 10);
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("페이지 파라미터로 강좌 목록 조회 시 해당 페이지 결과를 반환한다")
+    void givenPageParams_whenGetCourses_thenReturns200WithPaginatedResult() throws Exception {
+        CoursePageResponse pageResponse = new CoursePageResponse(List.of(), 1, 5, 0L, 0, true);
+        when(courseService.getCourses(null, 1, 5)).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/courses").param("page", "1").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.size").value(5));
+
+        verify(courseService).getCourses(null, 1, 5);
+    }
 
     // --- getCourseSummary ---
 

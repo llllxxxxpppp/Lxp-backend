@@ -5,6 +5,7 @@ import com.lcs.lxp.course.dto.request.AddMissionRequest;
 import com.lcs.lxp.course.dto.request.CreateCourseRequest;
 import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
+import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.service.CourseService;
 import jakarta.validation.Valid;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,6 +29,14 @@ public class CourseController {
 
     public CourseController(CourseService courseService) {
         this.courseService = courseService;
+    }
+
+    @GetMapping
+    public ResponseEntity<CoursePageResponse> getCourses(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(courseService.getCourses(keyword, page, size));
     }
 
     @GetMapping("/{courseId}")

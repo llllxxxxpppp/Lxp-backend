@@ -1,6 +1,7 @@
 package com.lcs.lxp.course.service;
 
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
+import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.entity.Course;
@@ -28,6 +29,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -72,6 +76,67 @@ class CourseServiceTest {
         var authority = new SimpleGrantedAuthority("ROLE_" + role.name());
         var auth = new UsernamePasswordAuthenticationToken("user", null, List.of(authority));
         SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    // --- getCourses ---
+
+    @Test
+    @DisplayName("키워드 없이 강좌 목록 조회 시 공개된 강좌 페이지를 반환한다")
+    void givenNoKeyword_whenGetCourses_thenReturnsPublicCoursePage() {
+        ReflectionTestUtils.setField(publishedCourse, "id", 1L);
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<Course> page = new PageImpl<>(List.of(publishedCourse), pageable, 1);
+        when(courseRepository.findAllByStatus(ContentStatus.PUBLIC, pageable)).thenReturn(page);
+
+        CoursePageResponse result = courseService.getCourses(null, 0, 10);
+
+        assertEquals(1L, result.totalElements());
+        assertEquals(0, result.page());
+        assertEquals(10, result.size());
+        assertEquals(1, result.courses().size());
+        verify(courseRepository).findAllByStatus(ContentStatus.PUBLIC, pageable);
+    }
+
+    @Test
+    @DisplayName("빈 키워드로 강좌 목록 조회 시 공개된 강좌 페이지를 반환한다")
+    void givenBlankKeyword_whenGetCourses_thenReturnsPublicCoursePage() {
+        ReflectionTestUtils.setField(publishedCourse, "id", 1L);
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<Course> page = new PageImpl<>(List.of(publishedCourse), pageable, 1);
+        when(courseRepository.findAllByStatus(ContentStatus.PUBLIC, pageable)).thenReturn(page);
+
+        CoursePageResponse result = courseService.getCourses("   ", 0, 10);
+
+        assertEquals(1L, result.totalElements());
+        verify(courseRepository).findAllByStatus(ContentStatus.PUBLIC, pageable);
+    }
+
+    @Test
+    @DisplayName("키워드로 강좌 목록 검색 시 키워드가 포함된 공개 강좌 페이지를 반환한다")
+    void givenKeyword_whenGetCourses_thenReturnsFilteredCoursePage() {
+        ReflectionTestUtils.setField(publishedCourse, "id", 1L);
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<Course> page = new PageImpl<>(List.of(publishedCourse), pageable, 1);
+        when(courseRepository.findByStatusAndTitleKeyword(ContentStatus.PUBLIC, "강좌", pageable)).thenReturn(page);
+
+        CoursePageResponse result = courseService.getCourses("강좌", 0, 10);
+
+        assertEquals(1L, result.totalElements());
+        assertEquals(1, result.courses().size());
+        verify(courseRepository).findByStatusAndTitleKeyword(ContentStatus.PUBLIC, "강좌", pageable);
+    }
+
+    @Test
+    @DisplayName("키워드 검색 결과가 없으면 빈 페이지를 반환한다")
+    void givenKeywordWithNoMatch_whenGetCourses_thenReturnsEmptyPage() {
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<Course> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+        when(courseRepository.findByStatusAndTitleKeyword(ContentStatus.PUBLIC, "없는키워드", pageable)).thenReturn(emptyPage);
+
+        CoursePageResponse result = courseService.getCourses("없는키워드", 0, 10);
+
+        assertEquals(0L, result.totalElements());
+        assertEquals(0, result.courses().size());
     }
 
     // --- getCourseSummary ---
