@@ -8,12 +8,14 @@
 com.lcs.lxp
 ├─ (Bounded Context)
 ├─ config
+├─ security
 └─ common
    ├─ event
    └─ exception
 ```
 
 - config: Spring 설정 클래스들이 위치한다.
+- security: Spring Security, JWT 인증 관련 설정 클래스들이 위치한다.
 - common
   - event: `ApplicationEventPublisher`와 이벤트 기반 객체를 정의한다. 바운디드 컨텍스트의 모든 이벤트는 이 기반 객체를 상속하여 구현해야 한다.
   - exception: 도메인 예외 객체를 정의한다. 바운디드 컨텍스트의 모든 예외는 이 예외 객체를 상속받아야 한다.

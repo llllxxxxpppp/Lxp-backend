@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-Spring Boot 3.5 기반의 Java 17 웹 애플리케이션. H2 인메모리 데이터베이스를 사용하며, Spring Data JPA, Spring Security, Spring Web이 핵심 의존성이다.
+Spring Boot 3.5 기반의 Java 17 웹 애플리케이션. H2 인메모리 데이터베이스를 사용하며, Spring Data JPA, Spring Security, Spring Web, JJWT가 핵심 의존성이다.
 
 - **그룹**: `com.lcs` / **아티팩트**: `lxp`
 - **데이터베이스**: H2 인메모리 (`jdbc:h2:mem:lxp-test`), DDL은 `create-drop` 전략

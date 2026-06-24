@@ -1,5 +1,7 @@
 package com.lcs.lxp.subscription.presentation;
 
+import com.lcs.lxp.security.jwt.JwtTokenProvider;
+import com.lcs.lxp.security.refresh.RefreshService;
 import com.lcs.lxp.subscription.application.dto.response.SubscriptionResponse;
 import com.lcs.lxp.subscription.application.service.SubscriptionService;
 import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
@@ -28,6 +30,12 @@ class SubscriptionControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private JwtTokenProvider jwtTokenProvider;
+
+    @MockitoBean
+    private RefreshService refreshService;
 
     @MockitoBean
     private SubscriptionService subscriptionService;
