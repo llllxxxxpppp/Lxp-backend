@@ -11,6 +11,8 @@ import com.lcs.lxp.course.dto.response.LectureResponse;
 import com.lcs.lxp.course.dto.response.MissionResponse;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.service.CourseService;
+import com.lcs.lxp.security.jwt.JwtTokenProvider;
+import com.lcs.lxp.security.refresh.RefreshService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +43,12 @@ class CourseControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private JwtTokenProvider jwtTokenProvider;
+
+    @MockitoBean
+    private RefreshService refreshService;
 
     @MockitoBean
     private CourseService courseService;
