@@ -1,15 +1,19 @@
 package com.lcs.lxp.course.service;
 
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
+import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.entity.Course;
+import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.InstructorId;
 import com.lcs.lxp.course.model.vo.LectureId;
 import com.lcs.lxp.course.model.vo.MissionId;
 import com.lcs.lxp.course.model.vo.Title;
 import com.lcs.lxp.course.repository.CourseRepository;
 import com.lcs.lxp.member.model.MemberRole;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,6 +27,18 @@ public class CourseService {
 
     public CourseService(CourseRepository courseRepository) {
         this.courseRepository = courseRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public CoursePageResponse getCourses(String keyword, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size);
+        Page<Course> result;
+        if (keyword == null || keyword.isBlank()) {
+            result = courseRepository.findAllByStatus(ContentStatus.PUBLIC, pageable);
+        } else {
+            result = courseRepository.findByStatusAndTitleKeyword(ContentStatus.PUBLIC, keyword, pageable);
+        }
+        return CoursePageResponse.from(result);
     }
 
     @Transactional(readOnly = true)

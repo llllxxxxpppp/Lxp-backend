@@ -41,6 +41,23 @@
 
 ---
 
+### 강좌 목록 조회 (페이지네이션·검색) (2026-06-24)
+
+**구현 내용**
+- `course/dto/response/CoursePageResponse` — 페이지 응답 DTO (record, `from(Page<Course>)` 팩토리 메서드)
+- `CourseRepository` — `findAllByStatus`, `findByStatusAndTitleKeyword` (JPQL, 제목 부분 일치·대소문자 무시) 쿼리 메서드 추가
+- `CourseService.getCourses(keyword, page, size)` — 키워드 없으면 전체 PUBLIC 강좌, 있으면 제목 검색
+
+**엔드포인트**
+- `GET /api/courses` — 공개 강좌 목록 조회 (200): `keyword`(optional), `page`(default=0), `size`(default=10) 쿼리 파라미터
+
+**응답 DTO**
+- `CoursePageResponse` — courses(`List<CourseSummaryResponse>`), page, size, totalElements, totalPages, last
+
+**테스트 현황**: CourseControllerTest(+3), CourseServiceTest(+4) — 전체 통과, PMD 통과
+
+---
+
 ### 강좌 컨트롤러 (2026-06-23)
 
 **구현 내용**
