@@ -34,6 +34,18 @@ class LectureTest {
     }
 
     @Test
+    @DisplayName("course가 null이면 강의를 생성할 수 없다")
+    void givenNullCourse_whenCreateLecture_thenThrowsException() {
+        assertThrows(CourseException.class, () -> Lecture.create(null, new Title("강의"), "/lectures/1"));
+    }
+
+    @Test
+    @DisplayName("title이 null이면 강의를 생성할 수 없다")
+    void givenNullTitle_whenCreateLecture_thenThrowsException() {
+        assertThrows(CourseException.class, () -> Lecture.create(privateCourse, null, "/lectures/1"));
+    }
+
+    @Test
     @DisplayName("강의 자료 URL이 null이면 생성할 수 없다")
     void givenNullContentUrl_whenAddLecture_thenThrowsException() {
         assertThrows(CourseException.class, () -> privateCourse.addLecture(new Title("강의"), null));
@@ -73,6 +85,13 @@ class LectureTest {
         Lecture lecture = publicCourse.getLectures().get(0);
         lecture.publish();
         assertThrows(CourseException.class, () -> lecture.update(new Title("수정된 강의"), "/lectures/1"));
+    }
+
+    @Test
+    @DisplayName("수정 시 title이 null이면 수정할 수 없다")
+    void givenNullTitleOnUpdate_whenUpdateLecture_thenThrowsException() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1");
+        assertThrows(CourseException.class, () -> lecture.update(null, "/lectures/1"));
     }
 
     @Test

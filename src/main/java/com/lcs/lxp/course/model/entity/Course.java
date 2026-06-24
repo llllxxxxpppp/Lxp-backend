@@ -63,6 +63,12 @@ public class Course {
     protected Course() {}
 
     public static Course create(InstructorId instructorId, Title title, String description, String thumbnailUrl) {
+        if (instructorId == null) {
+            throw new CourseException("강사 ID는 null일 수 없습니다.");
+        }
+        if (title == null) {
+            throw new CourseException("제목은 null일 수 없습니다.");
+        }
         if (description == null || description.isBlank()) {
             throw new CourseException("설명은 비어있을 수 없습니다.");
         }
@@ -122,6 +128,9 @@ public class Course {
     public void update(Title newTitle, String description, String thumbnailUrl) {
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강좌를 수정할 수 없습니다.");
+        }
+        if (newTitle == null) {
+            throw new CourseException("제목은 null일 수 없습니다.");
         }
         if (description == null || description.isBlank()) {
             throw new CourseException("설명은 비어있을 수 없습니다.");

@@ -64,6 +64,18 @@ class MissionTest {
     }
 
     @Test
+    @DisplayName("course가 null이면 미션을 생성할 수 없다")
+    void givenNullCourse_whenCreateMission_thenThrowsException() {
+        assertThrows(CourseException.class, () -> Mission.create(null, new Title("미션"), "문제 내용"));
+    }
+
+    @Test
+    @DisplayName("title이 null이면 미션을 생성할 수 없다")
+    void givenNullTitle_whenCreateMission_thenThrowsException() {
+        assertThrows(CourseException.class, () -> Mission.create(privateCourse, null, "문제 내용"));
+    }
+
+    @Test
     @DisplayName("문제 내용이 null이면 미션을 생성할 수 없다")
     void givenNullContent_whenAddMission_thenThrowsException() {
         assertThrows(CourseException.class, () -> privateCourse.addMission(new Title("미션"), null));
@@ -80,6 +92,13 @@ class MissionTest {
     void givenTooLongContent_whenAddMission_thenThrowsException() {
         String tooLong = "a".repeat(4097);
         assertThrows(CourseException.class, () -> privateCourse.addMission(new Title("미션"), tooLong));
+    }
+
+    @Test
+    @DisplayName("수정 시 title이 null이면 미션을 수정할 수 없다")
+    void givenNullTitleOnUpdate_whenUpdateMission_thenThrowsException() {
+        Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+        assertThrows(CourseException.class, () -> mission.update(null, "수정된 문제 내용"));
     }
 
     @Test

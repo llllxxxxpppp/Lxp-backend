@@ -49,6 +49,12 @@ public class Lecture {
     protected Lecture() {}
 
     static Lecture create(Course course, Title title, String contentUrl) {
+        if (course == null) {
+            throw new CourseException("강좌는 null일 수 없습니다.");
+        }
+        if (title == null) {
+            throw new CourseException("제목은 null일 수 없습니다.");
+        }
         if (contentUrl == null || contentUrl.isBlank()) {
             throw new CourseException("강의 자료 URL은 비어있을 수 없습니다.");
         }
@@ -92,6 +98,9 @@ public class Lecture {
     void update(Title newTitle, String contentUrl) {
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 수정할 수 없습니다.");
+        }
+        if (newTitle == null) {
+            throw new CourseException("제목은 null일 수 없습니다.");
         }
         if (contentUrl == null || contentUrl.isBlank()) {
             throw new CourseException("강의 자료 URL은 비어있을 수 없습니다.");
