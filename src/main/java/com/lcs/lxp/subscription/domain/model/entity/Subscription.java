@@ -1,16 +1,20 @@
 package com.lcs.lxp.subscription.domain.model.entity;
 
 import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
+import com.lcs.lxp.subscription.domain.model.vo.PaymentFailureResponse;
 import com.lcs.lxp.subscription.domain.model.vo.PaymentSuccessResponse;
 import com.lcs.lxp.subscription.domain.model.vo.SubscriptionId;
 import com.lcs.lxp.subscription.domain.model.vo.SubscriptionStatus;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.Objects;
@@ -47,6 +51,9 @@ public class Subscription {
     @Column
     private OffsetDateTime activatedAt;
 
+    @OneToOne(mappedBy = "subscription", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private Payment payment;
+
     protected Subscription() {}
 
     public static Subscription create(Long memberId) {
@@ -73,15 +80,18 @@ public class Subscription {
         if (status != SubscriptionStatus.INACTIVE) {
             throw new SubscriptionException(INACTIVE_REQUIRED);
         }
+        payment.handleSuccess(response);
         status = SubscriptionStatus.ACTIVE;
         activatedAt = response.approvedAt();
         updatedAt = OffsetDateTime.now();
     }
 
-    public void markPaymentFailed() {
+    public void markPaymentFailed(PaymentFailureResponse response) {
+        Objects.requireNonNull(response, "결제 실패 응답은 null일 수 없습니다.");
         if (status != SubscriptionStatus.INACTIVE) {
             throw new SubscriptionException(INACTIVE_REQUIRED);
         }
+        payment.handleFailure(response);
         status = SubscriptionStatus.PAYMENT_FAILED;
         updatedAt = OffsetDateTime.now();
     }
@@ -144,5 +154,13 @@ public class Subscription {
 
     public OffsetDateTime getActivatedAt() {
         return activatedAt;
+    }
+
+    public Payment getPayment() {
+        return payment;
+    }
+
+    public void assignPayment(Payment payment) {
+        this.payment = payment;
     }
 }

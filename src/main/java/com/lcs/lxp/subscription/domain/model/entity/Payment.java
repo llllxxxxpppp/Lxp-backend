@@ -14,9 +14,12 @@ import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.Objects;
@@ -32,8 +35,9 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "subscription_id", nullable = false)
-    private Long subscriptionId;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subscription_id", nullable = false)
+    private Subscription subscription;
 
     @Embedded
     private PaymentInfo info;
@@ -41,9 +45,6 @@ public class Payment {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentStatus status;
-
-    @Column(name = "occurred_at")
-    private OffsetDateTime occurredAt;
 
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -53,9 +54,10 @@ public class Payment {
 
     protected Payment() {}
 
-    public static Payment create(Long subscriptionId, PaymentInfo info) {
+    public static Payment create(Subscription subscription, PaymentInfo info) {
+        Objects.requireNonNull(subscription, "subscription은 null일 수 없습니다.");
         Payment payment = new Payment();
-        payment.subscriptionId = subscriptionId;
+        payment.subscription = subscription;
         payment.info = info;
         payment.status = PaymentStatus.PAYMENT_NOT_REQUESTED;
         payment.createdAt = OffsetDateTime.now();
@@ -82,10 +84,6 @@ public class Payment {
         return info.isFree();
     }
 
-    public OffsetDateTime getOccurredAt() {
-        return occurredAt;
-    }
-
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -96,7 +94,6 @@ public class Payment {
 
     public void requestPayment() {
         status = PaymentStatus.PAYMENT_REQUESTED;
-        occurredAt = OffsetDateTime.now();
         updatedAt = OffsetDateTime.now();
     }
 
@@ -106,7 +103,6 @@ public class Payment {
             throw new SubscriptionException(ALREADY_PROCESSED);
         }
         status = PaymentStatus.PAYMENT_SUCCESS;
-        occurredAt = response.approvedAt();
         updatedAt = OffsetDateTime.now();
     }
 
@@ -116,7 +112,6 @@ public class Payment {
             throw new SubscriptionException(ALREADY_PROCESSED);
         }
         status = PaymentStatus.PAYMENT_FAILED;
-        occurredAt = response.failedAt();
         updatedAt = OffsetDateTime.now();
     }
 
@@ -126,7 +121,6 @@ public class Payment {
             throw new SubscriptionException("결제 성공 상태에서만 환불을 요청할 수 있습니다.");
         }
         status = PaymentStatus.REFUND_REQUESTED;
-        occurredAt = OffsetDateTime.now();
         updatedAt = OffsetDateTime.now();
     }
 
@@ -136,7 +130,6 @@ public class Payment {
             throw new SubscriptionException(ALREADY_REFUNDED);
         }
         status = PaymentStatus.REFUND_SUCCESS;
-        occurredAt = response.refundedAt();
         updatedAt = OffsetDateTime.now();
     }
 
@@ -146,7 +139,6 @@ public class Payment {
             throw new SubscriptionException(ALREADY_REFUNDED);
         }
         status = PaymentStatus.REFUND_FAILED;
-        occurredAt = response.failedAt();
         updatedAt = OffsetDateTime.now();
     }
 }
