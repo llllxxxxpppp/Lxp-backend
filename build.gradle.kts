@@ -20,6 +20,17 @@ repositories {
 }
 
 dependencies {
+    modules {
+        module("org.springframework.boot:spring-boot-starter-logging") {
+            replacedBy(
+                "org.springframework.boot:spring-boot-starter-log4j2",
+                "Use Log4j2 instead of Logback"
+            )
+        }
+    }
+
+    implementation("org.springframework.boot:spring-boot-starter-log4j2")
+
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")

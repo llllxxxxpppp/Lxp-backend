@@ -1,5 +1,5 @@
 ---
-name: test-code-writter-agent
+name: test-code-writer-agent
 description: 명세서에 맞게 테스트 코드를 작성한다. 테스트 코드를 작성하거나 실행해야할 때 지시 사항을 전달하며 실행한다.
 model: haiku
 color: yellow
