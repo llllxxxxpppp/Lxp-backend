@@ -41,6 +41,7 @@ public class InstructorMember extends Member {
     }
 
     public void suspend() {
+        markSuspended();
         markDeleted();
     }
 }

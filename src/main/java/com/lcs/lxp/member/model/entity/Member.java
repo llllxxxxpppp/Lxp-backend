@@ -38,6 +38,9 @@ public abstract class Member {
     @Column(nullable = false)
     private boolean deleted;
 
+    @Column
+    private OffsetDateTime suspendedAt;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -73,6 +76,14 @@ public abstract class Member {
         return deleted;
     }
 
+    public OffsetDateTime getSuspendedAt() {
+        return suspendedAt;
+    }
+
+    public boolean isSuspended() {
+        return suspendedAt != null;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -96,6 +107,11 @@ public abstract class Member {
     protected void markDeleted() {
         this.deleted = true;
         this.updatedAt = OffsetDateTime.now();
+    }
+
+    protected void markSuspended() {
+        this.suspendedAt = OffsetDateTime.now();
+        touch();
     }
 
     protected void touch() {
