@@ -160,4 +160,37 @@ public class MemberService {
 
         eventPublisher.publishEvent(new InstructorSuspendedEvent(instructorId));
     }
+
+    @Transactional
+    public void changePassword(Long memberId, String currentPassword, String newPassword) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new MemberException("존재하지 않는 회원입니다."));
+
+        if (!passwordEncoder.matches(currentPassword, member.getPassword())) {
+            throw new MemberException("현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        member.updatePassword(passwordEncoder.encode(newPassword));
+        memberRepository.save(member);
+    }
+
+    @Transactional
+    public UserResponseDTO updateInstructorProfile(
+            Long memberId,
+            String name,
+            String profileImageUrl,
+            String introduction
+    ) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new MemberException("존재하지 않는 회원입니다."));
+
+        if (!(member instanceof InstructorMember instructorMember)) {
+            throw new MemberException("강사만 프로필을 변경할 수 있습니다.");
+        }
+
+        instructorMember.updateProfile(name, profileImageUrl, introduction);
+        Member savedMember = memberRepository.save(instructorMember);
+
+        return UserResponseDTO.from(savedMember);
+    }
 }

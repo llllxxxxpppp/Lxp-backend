@@ -242,4 +242,137 @@ class MemberServiceTest {
         verify(memberRepository).existsByEmail(email);
         verify(memberRepository, never()).save(any());
     }
+
+    // -------------------------------------------------------------------------
+    // changePassword
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("현재 비밀번호가 일치하면 새 비밀번호로 변경되고 save가 호출된다")
+    void givenValidCurrentPassword_whenChangePassword_thenPasswordIsUpdatedAndSaveIsCalled() {
+        Long memberId = 1L;
+        String currentPassword = "current_password";
+        String newPassword = "new_password";
+        String encodedCurrentPassword = "encoded_current_password";
+        String encodedNewPassword = "encoded_new_password";
+
+        RegularMember regularMember = RegularMember.create("user@example.com", encodedCurrentPassword);
+        ReflectionTestUtils.setField(regularMember, "id", memberId);
+
+        when(memberRepository.findById(memberId)).thenReturn(Optional.of(regularMember));
+        when(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true);
+        when(passwordEncoder.encode(newPassword)).thenReturn(encodedNewPassword);
+
+        memberService.changePassword(memberId, currentPassword, newPassword);
+
+        verify(memberRepository).findById(memberId);
+        verify(passwordEncoder).matches(currentPassword, encodedCurrentPassword);
+        verify(passwordEncoder).encode(newPassword);
+        verify(memberRepository).save(any(RegularMember.class));
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 일치하지 않으면 MemberException이 발생하고 save가 호출되지 않는다")
+    void givenInvalidCurrentPassword_whenChangePassword_thenThrowsMemberExceptionAndSaveIsNotCalled() {
+        Long memberId = 1L;
+        String currentPassword = "wrong_password";
+        String newPassword = "new_password";
+        String encodedCurrentPassword = "encoded_current_password";
+
+        RegularMember regularMember = RegularMember.create("user@example.com", encodedCurrentPassword);
+        ReflectionTestUtils.setField(regularMember, "id", memberId);
+
+        when(memberRepository.findById(memberId)).thenReturn(Optional.of(regularMember));
+        when(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(false);
+
+        assertThrows(MemberException.class, () ->
+                memberService.changePassword(memberId, currentPassword, newPassword));
+
+        verify(memberRepository).findById(memberId);
+        verify(passwordEncoder).matches(currentPassword, encodedCurrentPassword);
+        verify(memberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 회원의 비밀번호를 변경하려 하면 MemberException이 발생한다")
+    void givenNonExistingMember_whenChangePassword_thenThrowsMemberException() {
+        Long memberId = 999L;
+        String currentPassword = "current_password";
+        String newPassword = "new_password";
+
+        when(memberRepository.findById(memberId)).thenReturn(Optional.empty());
+
+        assertThrows(MemberException.class, () ->
+                memberService.changePassword(memberId, currentPassword, newPassword));
+
+        verify(memberRepository).findById(memberId);
+        verify(memberRepository, never()).save(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // updateInstructorProfile
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("강사 프로필을 정상적으로 변경하면 save가 호출되고 UserResponseDTO를 반환한다")
+    void givenValidInstructorMember_whenUpdateInstructorProfile_thenProfileIsUpdatedAndReturnsUserResponseDTO() {
+        Long instructorId = 1L;
+        String name = "수정된 이름";
+        String profileImageUrl = "https://example.com/updated_image.jpg";
+        String introduction = "수정된 소개";
+
+        InstructorMember instructorMember = InstructorMember.create("instructor@example.com", "encoded_password",
+                "원래 이름", null, null);
+        ReflectionTestUtils.setField(instructorMember, "id", instructorId);
+
+        when(memberRepository.findById(instructorId)).thenReturn(Optional.of(instructorMember));
+        when(memberRepository.save(any(InstructorMember.class))).thenReturn(instructorMember);
+
+        com.lcs.lxp.member.dto.response.UserResponseDTO result = memberService.updateInstructorProfile(
+                instructorId, name, profileImageUrl, introduction);
+
+        verify(memberRepository).findById(instructorId);
+        verify(memberRepository).save(any(InstructorMember.class));
+
+        assertEquals(instructorId, result.id());
+        assertEquals("instructor@example.com", result.email());
+        assertEquals(com.lcs.lxp.member.model.MemberRole.INSTRUCTOR, result.role());
+    }
+
+    @Test
+    @DisplayName("일반 회원의 프로필을 변경하려 하면 MemberException이 발생하고 save가 호출되지 않는다")
+    void givenRegularMember_whenUpdateInstructorProfile_thenThrowsMemberExceptionAndSaveIsNotCalled() {
+        Long memberId = 1L;
+        String name = "수정된 이름";
+        String profileImageUrl = "https://example.com/updated_image.jpg";
+        String introduction = "수정된 소개";
+
+        RegularMember regularMember = RegularMember.create("user@example.com", "encoded_password");
+        ReflectionTestUtils.setField(regularMember, "id", memberId);
+
+        when(memberRepository.findById(memberId)).thenReturn(Optional.of(regularMember));
+
+        assertThrows(MemberException.class, () ->
+                memberService.updateInstructorProfile(memberId, name, profileImageUrl, introduction));
+
+        verify(memberRepository).findById(memberId);
+        verify(memberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강사의 프로필을 변경하려 하면 MemberException이 발생한다")
+    void givenNonExistingInstructor_whenUpdateInstructorProfile_thenThrowsMemberException() {
+        Long instructorId = 999L;
+        String name = "수정된 이름";
+        String profileImageUrl = "https://example.com/updated_image.jpg";
+        String introduction = "수정된 소개";
+
+        when(memberRepository.findById(instructorId)).thenReturn(Optional.empty());
+
+        assertThrows(MemberException.class, () ->
+                memberService.updateInstructorProfile(instructorId, name, profileImageUrl, introduction));
+
+        verify(memberRepository).findById(instructorId);
+        verify(memberRepository, never()).save(any());
+    }
 }
