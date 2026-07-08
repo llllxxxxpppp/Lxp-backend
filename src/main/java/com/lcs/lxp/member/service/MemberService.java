@@ -72,9 +72,7 @@ public class MemberService {
 
     @Transactional
     public UserResponseDTO register(String email, String password) {
-        if (memberRepository.existsByEmail(email)) {
-            throw new MemberException("이미 사용 중인 이메일 입니다.");
-        }
+        ensureEmailNotTaken(email);
 
         RegularMember member = RegularMember.create(email, passwordEncoder.encode(password));
 
@@ -91,9 +89,7 @@ public class MemberService {
             String profileImageUrl,
             String introduction
     ) {
-        if (memberRepository.existsByEmail(email)) {
-            throw new MemberException("이미 사용 중인 이메일 입니다.");
-        }
+        ensureEmailNotTaken(email);
 
         InstructorMember member = InstructorMember.create(
                 email, passwordEncoder.encode(password), name, profileImageUrl, introduction);
@@ -115,14 +111,7 @@ public class MemberService {
 
     @Transactional
     public void suspendMember(Long memberId) {
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new MemberException("존재하지 않는 회원입니다."));
-
-        if (!(member instanceof RegularMember)) {
-            throw new MemberException("일반 회원만 정지시킬 수 있습니다.");
-        }
-
-        RegularMember regularMember = (RegularMember) member;
+        RegularMember regularMember = getRegularMemberOrThrow(memberId);
         regularMember.suspend();
         memberRepository.save(regularMember);
 
@@ -131,14 +120,7 @@ public class MemberService {
 
     @Transactional
     public void withdrawMember(Long memberId) {
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new MemberException("존재하지 않는 회원입니다."));
-
-        if (!(member instanceof RegularMember)) {
-            throw new MemberException("일반 회원만 탈퇴할 수 있습니다.");
-        }
-
-        RegularMember regularMember = (RegularMember) member;
+        RegularMember regularMember = getRegularMemberOrThrow(memberId);
         regularMember.withdraw();
         memberRepository.save(regularMember);
 
@@ -147,14 +129,7 @@ public class MemberService {
 
     @Transactional
     public void suspendInstructor(Long instructorId) {
-        Member member = memberRepository.findById(instructorId)
-                .orElseThrow(() -> new MemberException("존재하지 않는 강사입니다."));
-
-        if (!(member instanceof InstructorMember)) {
-            throw new MemberException("강사만 정지시킬 수 있습니다.");
-        }
-
-        InstructorMember instructorMember = (InstructorMember) member;
+        InstructorMember instructorMember = getInstructorMemberOrThrow(instructorId);
         instructorMember.suspend();
         memberRepository.save(instructorMember);
 
@@ -163,8 +138,7 @@ public class MemberService {
 
     @Transactional
     public void changePassword(Long memberId, String currentPassword, String newPassword) {
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new MemberException("존재하지 않는 회원입니다."));
+        Member member = getMemberOrThrow(memberId);
 
         if (!passwordEncoder.matches(currentPassword, member.getPassword())) {
             throw new MemberException("현재 비밀번호가 일치하지 않습니다.");
@@ -181,16 +155,36 @@ public class MemberService {
             String profileImageUrl,
             String introduction
     ) {
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new MemberException("존재하지 않는 회원입니다."));
-
-        if (!(member instanceof InstructorMember instructorMember)) {
-            throw new MemberException("강사만 프로필을 변경할 수 있습니다.");
-        }
+        InstructorMember instructorMember = getInstructorMemberOrThrow(memberId);
 
         instructorMember.updateProfile(name, profileImageUrl, introduction);
         Member savedMember = memberRepository.save(instructorMember);
 
         return UserResponseDTO.from(savedMember);
+    }
+
+    private void ensureEmailNotTaken(String email) {
+        if (memberRepository.existsByEmail(email)) {
+            throw new MemberException("이미 사용 중인 이메일 입니다.");
+        }
+    }
+
+    private Member getMemberOrThrow(Long memberId) {
+        return memberRepository.findById(memberId)
+                .orElseThrow(() -> new MemberException("존재하지 않는 회원입니다."));
+    }
+
+    private RegularMember getRegularMemberOrThrow(Long memberId) {
+        if (getMemberOrThrow(memberId) instanceof RegularMember regularMember) {
+            return regularMember;
+        }
+        throw new MemberException("일반 회원이 아닙니다.");
+    }
+
+    private InstructorMember getInstructorMemberOrThrow(Long memberId) {
+        if (getMemberOrThrow(memberId) instanceof InstructorMember instructorMember) {
+            return instructorMember;
+        }
+        throw new MemberException("강사가 아닙니다.");
     }
 }

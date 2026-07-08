@@ -95,18 +95,18 @@ public abstract class Member {
     public void updateEmail(String email) {
         validateEmail(email);
         this.email = email;
-        this.updatedAt = OffsetDateTime.now();
+        touch();
     }
 
     public void updatePassword(String encodedPassword) {
         validatePassword(encodedPassword);
         this.password = encodedPassword;
-        this.updatedAt = OffsetDateTime.now();
+        touch();
     }
 
     protected void markDeleted() {
         this.deleted = true;
-        this.updatedAt = OffsetDateTime.now();
+        touch();
     }
 
     protected void markSuspended() {

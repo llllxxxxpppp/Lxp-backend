@@ -1,5 +1,6 @@
 package com.lcs.lxp.member.service;
 
+import com.lcs.lxp.member.dto.response.UserResponseDTO;
 import com.lcs.lxp.member.exception.MemberException;
 import com.lcs.lxp.member.model.entity.InstructorMember;
 import com.lcs.lxp.member.model.entity.RegularMember;
@@ -213,8 +214,7 @@ class MemberServiceTest {
         when(passwordEncoder.encode(password)).thenReturn("encoded_password");
         when(memberRepository.save(any(InstructorMember.class))).thenReturn(instructorMember);
 
-        com.lcs.lxp.member.dto.response.UserResponseDTO result = memberService.registerInstructor(
-                email, password, name, profileImageUrl, introduction);
+        UserResponseDTO result = memberService.registerInstructor(email, password, name, profileImageUrl, introduction);
 
         verify(memberRepository).existsByEmail(email);
         verify(passwordEncoder).encode(password);
@@ -328,8 +328,7 @@ class MemberServiceTest {
         when(memberRepository.findById(instructorId)).thenReturn(Optional.of(instructorMember));
         when(memberRepository.save(any(InstructorMember.class))).thenReturn(instructorMember);
 
-        com.lcs.lxp.member.dto.response.UserResponseDTO result = memberService.updateInstructorProfile(
-                instructorId, name, profileImageUrl, introduction);
+        UserResponseDTO result = memberService.updateInstructorProfile(instructorId, name, profileImageUrl, introduction);
 
         verify(memberRepository).findById(instructorId);
         verify(memberRepository).save(any(InstructorMember.class));

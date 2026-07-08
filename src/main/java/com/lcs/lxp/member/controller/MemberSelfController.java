@@ -27,8 +27,7 @@ public class MemberSelfController {
     public ResponseEntity<Void> changePassword(
             @RequestBody @Valid ChangePasswordRequest request,
             Authentication authentication) {
-        Long memberId = Long.parseLong(authentication.getName());
-        memberService.changePassword(memberId, request.currentPassword(), request.newPassword());
+        memberService.changePassword(resolveMemberId(authentication), request.currentPassword(), request.newPassword());
         return ResponseEntity.noContent().build();
     }
 
@@ -36,16 +35,18 @@ public class MemberSelfController {
     public ResponseEntity<UserResponseDTO> updateInstructorProfile(
             @RequestBody @Valid UpdateInstructorProfileRequest request,
             Authentication authentication) {
-        Long memberId = Long.parseLong(authentication.getName());
         UserResponseDTO response = memberService.updateInstructorProfile(
-                memberId, request.name(), request.profileImageUrl(), request.introduction());
+                resolveMemberId(authentication), request.name(), request.profileImageUrl(), request.introduction());
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping
     public ResponseEntity<Void> withdraw(Authentication authentication) {
-        Long memberId = Long.parseLong(authentication.getName());
-        memberService.withdrawMember(memberId);
+        memberService.withdrawMember(resolveMemberId(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    private Long resolveMemberId(Authentication authentication) {
+        return Long.parseLong(authentication.getName());
     }
 }
