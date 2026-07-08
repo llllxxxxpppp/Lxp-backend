@@ -84,6 +84,26 @@ public class MemberService {
     }
 
     @Transactional
+    public UserResponseDTO registerInstructor(
+            String email,
+            String password,
+            String name,
+            String profileImageUrl,
+            String introduction
+    ) {
+        if (memberRepository.existsByEmail(email)) {
+            throw new MemberException("이미 사용 중인 이메일 입니다.");
+        }
+
+        InstructorMember member = InstructorMember.create(
+                email, passwordEncoder.encode(password), name, profileImageUrl, introduction);
+
+        Member savedUser = memberRepository.save(member);
+
+        return UserResponseDTO.from(savedUser);
+    }
+
+    @Transactional
     public void logout(String refreshTokenValue) {
         if (refreshTokenValue == null || refreshTokenValue.isBlank()) {
             return;

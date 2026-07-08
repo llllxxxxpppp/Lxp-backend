@@ -87,8 +87,8 @@ public class SecurityConfig {
 
         http.authorizeHttpRequests(auth -> {
             auth.requestMatchers("/api/auth/**").permitAll();
-            auth.requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN");
-            auth.requestMatchers("/api/member/**").hasAnyAuthority("MEMBER");
+            auth.requestMatchers("/api/admin/**").hasRole("ADMIN");
+            auth.requestMatchers("/api/member/**").hasRole("MEMBER");
             auth.requestMatchers(HttpMethod.POST, "/api/courses").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/publish").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/unpublish").hasAnyRole("INSTRUCTOR", "ADMIN");

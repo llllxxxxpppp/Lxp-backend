@@ -13,9 +13,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -189,5 +191,55 @@ class MemberServiceTest {
 
         verify(memberRepository, never()).save(any());
         verify(applicationEventPublisher, never()).publishEvent(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // registerInstructor
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("강사를 정상적으로 등록하면 save가 호출되고 UserResponseDTO를 반환한다")
+    void givenValidInstructorData_whenRegisterInstructor_thenSaveIsCalledAndReturnUserResponseDTO() {
+        String email = "instructor@example.com";
+        String password = "password123";
+        String name = "홍길동";
+        String profileImageUrl = "https://example.com/image.jpg";
+        String introduction = "안녕하세요, 저는 홍길동입니다.";
+
+        InstructorMember instructorMember = InstructorMember.create(email, "encoded_password", name, profileImageUrl, introduction);
+        ReflectionTestUtils.setField(instructorMember, "id", 1L);
+
+        when(memberRepository.existsByEmail(email)).thenReturn(false);
+        when(passwordEncoder.encode(password)).thenReturn("encoded_password");
+        when(memberRepository.save(any(InstructorMember.class))).thenReturn(instructorMember);
+
+        com.lcs.lxp.member.dto.response.UserResponseDTO result = memberService.registerInstructor(
+                email, password, name, profileImageUrl, introduction);
+
+        verify(memberRepository).existsByEmail(email);
+        verify(passwordEncoder).encode(password);
+        verify(memberRepository).save(any(InstructorMember.class));
+
+        assertEquals(1L, result.id());
+        assertEquals(email, result.email());
+        assertEquals(com.lcs.lxp.member.model.MemberRole.INSTRUCTOR, result.role());
+    }
+
+    @Test
+    @DisplayName("이미 존재하는 이메일로 강사를 등록하려 하면 MemberException이 발생한다")
+    void givenExistingEmail_whenRegisterInstructor_thenThrowsMemberException() {
+        String email = "instructor@example.com";
+        String password = "password123";
+        String name = "홍길동";
+        String profileImageUrl = "https://example.com/image.jpg";
+        String introduction = "안녕하세요, 저는 홍길동입니다.";
+
+        when(memberRepository.existsByEmail(email)).thenReturn(true);
+
+        assertThrows(MemberException.class, () ->
+                memberService.registerInstructor(email, password, name, profileImageUrl, introduction));
+
+        verify(memberRepository).existsByEmail(email);
+        verify(memberRepository, never()).save(any());
     }
 }
