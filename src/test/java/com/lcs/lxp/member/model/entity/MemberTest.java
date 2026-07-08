@@ -42,6 +42,14 @@ class MemberTest {
     }
 
     @Test
+    @DisplayName("일반 회원 생성 시 정지일시와 탈퇴일시는 null이다")
+    void givenValidValues_whenCreateRegularMember_thenSuspendedAtAndWithdrawnAtAreNull() {
+        RegularMember member = RegularMember.create("user@example.com", "encoded_password");
+        assertNull(member.getSuspendedAt());
+        assertNull(member.getWithdrawnAt());
+    }
+
+    @Test
     @DisplayName("이메일이 null이면 일반 회원 생성 시 예외가 발생한다")
     void givenNullEmail_whenCreateMember_thenThrowsException() {
         assertThrows(MemberException.class, () -> RegularMember.create(null, "encoded_password"));
@@ -189,36 +197,89 @@ class MemberTest {
     }
 
     // -------------------------------------------------------------------------
-    // withdraw
+    // withdraw (RegularMember)
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("회원 탈퇴 처리 시 deleted가 true가 된다")
-    void givenMember_whenWithdraw_thenDeletedIsTrue() {
+    @DisplayName("일반 회원 탈퇴 처리 시 deleted가 true가 된다")
+    void givenRegularMember_whenWithdraw_thenDeletedIsTrue() {
         RegularMember member = RegularMember.create("user@example.com", "encoded_password");
         member.withdraw();
         assertTrue(member.isDeleted());
     }
 
     @Test
-    @DisplayName("회원 탈퇴 처리 후 수정 일자가 갱신된다")
-    void givenMember_whenWithdraw_thenUpdatedAtIsSet() {
+    @DisplayName("일반 회원 탈퇴 처리 시 탈퇴일시가 설정된다")
+    void givenRegularMember_whenWithdraw_thenWithdrawnAtIsSet() {
+        RegularMember member = RegularMember.create("user@example.com", "encoded_password");
+        member.withdraw();
+        assertNotNull(member.getWithdrawnAt());
+    }
+
+    @Test
+    @DisplayName("일반 회원 탈퇴 처리 후 수정 일자가 갱신된다")
+    void givenRegularMember_whenWithdraw_thenUpdatedAtIsSet() {
         RegularMember member = RegularMember.create("user@example.com", "encoded_password");
         member.withdraw();
         assertNotNull(member.getUpdatedAt());
     }
 
+    @Test
+    @DisplayName("일반 회원 탈퇴 처리 후에도 정지일시는 null로 유지된다")
+    void givenRegularMember_whenWithdraw_thenSuspendedAtRemainsNull() {
+        RegularMember member = RegularMember.create("user@example.com", "encoded_password");
+        member.withdraw();
+        assertNull(member.getSuspendedAt());
+    }
+
     // -------------------------------------------------------------------------
-    // suspend
+    // suspend (RegularMember)
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("강사 정지 처리 시 deleted가 true가 된다")
-    void givenInstructor_whenSuspend_thenDeletedIsTrue() {
+    @DisplayName("일반 회원 정지 처리 시 정지일시가 설정된다")
+    void givenRegularMember_whenSuspend_thenSuspendedAtIsSet() {
+        RegularMember member = RegularMember.create("user@example.com", "encoded_password");
+        member.suspend();
+        assertNotNull(member.getSuspendedAt());
+    }
+
+    @Test
+    @DisplayName("일반 회원 정지 처리 시 로그인 차단을 위해 deleted가 true가 된다")
+    void givenRegularMember_whenSuspend_thenDeletedIsTrue() {
+        RegularMember member = RegularMember.create("user@example.com", "encoded_password");
+        member.suspend();
+        assertTrue(member.isDeleted());
+    }
+
+    @Test
+    @DisplayName("일반 회원 정지 처리 시 수정 일자가 갱신된다")
+    void givenRegularMember_whenSuspend_thenUpdatedAtIsSet() {
+        RegularMember member = RegularMember.create("user@example.com", "encoded_password");
+        member.suspend();
+        assertNotNull(member.getUpdatedAt());
+    }
+
+    @Test
+    @DisplayName("일반 회원 정지 처리 후에도 탈퇴일시는 null로 유지된다")
+    void givenRegularMember_whenSuspend_thenWithdrawnAtRemainsNull() {
+        RegularMember member = RegularMember.create("user@example.com", "encoded_password");
+        member.suspend();
+        assertNull(member.getWithdrawnAt());
+    }
+
+    // -------------------------------------------------------------------------
+    // suspend (InstructorMember)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("강사 정지 처리 시 deleted가 true가 되고 정지일시가 설정된다")
+    void givenInstructor_whenSuspend_thenDeletedIsTrueAndSuspendedAtIsSet() {
         InstructorMember instructor = InstructorMember.create("instructor@example.com", "encoded_password",
                 "홍길동", null, null);
         instructor.suspend();
         assertTrue(instructor.isDeleted());
+        assertNotNull(instructor.getSuspendedAt());
     }
 
     @Test

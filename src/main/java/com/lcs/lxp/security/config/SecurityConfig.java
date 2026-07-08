@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -86,8 +87,19 @@ public class SecurityConfig {
 
         http.authorizeHttpRequests(auth -> {
             auth.requestMatchers("/api/auth/**").permitAll();
-            auth.requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN");
-            auth.requestMatchers("/api/member/**").hasAnyAuthority("MEMBER");
+            auth.requestMatchers("/api/admin/**").hasRole("ADMIN");
+            auth.requestMatchers("/api/member/**").hasRole("MEMBER");
+            auth.requestMatchers(HttpMethod.POST, "/api/courses").hasRole("INSTRUCTOR");
+            auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/publish").hasRole("INSTRUCTOR");
+            auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/unpublish").hasAnyRole("INSTRUCTOR", "ADMIN");
+            auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/lectures").hasRole("INSTRUCTOR");
+            auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/lectures/{lectureId}/publish").hasRole("INSTRUCTOR");
+            auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/lectures/{lectureId}/unpublish")
+                    .hasAnyRole("INSTRUCTOR", "ADMIN");
+            auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/missions").hasRole("INSTRUCTOR");
+            auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/missions/{missionId}/publish").hasRole("INSTRUCTOR");
+            auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/missions/{missionId}/unpublish")
+                    .hasAnyRole("INSTRUCTOR", "ADMIN");
             auth.anyRequest().authenticated();
         });
 
