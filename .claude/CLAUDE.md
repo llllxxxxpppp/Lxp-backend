@@ -41,6 +41,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew jacocoTestReport
 ```
 
+## 코딩 표준 및 구체적 제약
+
+- 클래스 이름을 패키지포함 풀네임으로 적지 말고 import 후 사용할 것.
+  - ex) com.example.SomeClass -> import com.example.SomeClass;, SomeClass 사용.
+
 ## 코드 품질 도구
 
 ### PMD (정적 분석)
