@@ -15,8 +15,10 @@
 | 강좌 컨텐츠 관리 (Course) | 강좌/강의/미션 | Member | ✅ 완료 (2026-07-13 Status VO 열거형 유지로 확정) |
 | 미션 답안 관리 (MissionAnswer) | 미션답안/댓글 | Member, Course, Subscription | ✅ 완료 |
 | 강좌 후기 관리 (CourseReview) | 강좌 후기 | Member, Course, Subscription | ✅ 완료 |
+| Security (공통 인프라, 경량 관리용) | JWT 인증/인가, 리프레시 토큰, UserDetailsService | 없음 (계획 스케줄링 순서에 미포함, 2026-07-13 사용자 확정) | ✅ 완료 (경량, `.claude/domain/SECURITY.md`) |
 
 **의존성 순서 (선행 → 후행):** Member → Subscription, Course → MissionAnswer → CourseReview
+(Security는 `.claude/ARCHITECTURE.md` 기준 Bounded Context가 아닌 공통 인프라이므로 이 의존성 순서에는 포함하지 않는다. 기존에 이미 구현된 코드의 테스트 커버리지 보강 목적으로만 경량 관리한다.)
 
 ### Member 도메인 관련 확정 사항 (2026-07-13, 사용자 확정)
 
@@ -62,9 +64,19 @@
 
 세부 내용은 `.claude/task/task-subscription.md` 참고.
 
-### 크로스커팅 발견 사항 (아직 작업으로 등록하지 않음, 사용자 결정 필요)
+| SEC-01 | ⚪ | JWT 토큰 발급/파싱 단위 테스트 | Security | - | 없음 |
+| SEC-02 | ⚪ | JWT 인증 필터 단위 테스트 | Security | - | 없음 |
+| SEC-03 | ⚪ | 리프레시 토큰 재발급 단위 테스트 | Security | - | 없음 |
+| SEC-04 | ⚪ | 인증 Principal/UserDetailsService 단위 테스트 | Security | - | 없음 |
 
-- **전역 테스트 라인 커버리지 79% (목표 80%, `test-code-runner-agent` 기준)**: 2026-07-13 MEMBER-02 재구현 완료 시 `./gradlew check` 실행 중 발견. MEMBER-02 자체 diff(`MemberRegisteredEvent`)는 4/4줄(100%) 커버됨 — 원인은 이 작업과 무관한 기존 미테스트 영역: `security/jwt`(19.8%), `security/refresh`(21.2%), `security/principal`(0%), `security/exception`(0%), `security/service`(25%), `subscription/infrastructure`(23.3%, `DummyPaymentGateway` 등 stub), `member/service`의 `login()` 등. 어느 BC 소관인지(보안 공통 인프라 vs 도메인별) 및 작업 분할 방식은 미결정. 사용자 확인(2026-07-13): MEMBER-02는 이 문제와 별개로 완료 처리. 신규 작업으로 등록할지, 등록한다면 어느 도메인/우선순위로 할지는 사용자 판단 필요.
+세부 내용은 `.claude/task/task-security.md` 참고.
+
+### 크로스커팅 발견 사항 처리 결과 (2026-07-13)
+
+- **전역 테스트 라인 커버리지 79% (목표 80%, `test-code-runner-agent` 기준)**: MEMBER-02 재구현 완료 시 `./gradlew check` 실행 중 발견. MEMBER-02 자체 diff(`MemberRegisteredEvent`)는 4/4줄(100%) 커버됨 — 원인은 이 작업과 무관한 기존 미테스트 영역: `security/jwt`(19.8%), `security/refresh`(21.2%), `security/principal`(0%), `security/exception`(0%), `security/service`(25%), `member/service`의 `login()` 등.
+  - `security/*` 영역 → 사용자 확인(2026-07-13)으로 Security를 경량 BC로 등록하고 SEC-01~04로 구체화(위 요약표 참고).
+  - `subscription/infrastructure`(23.3%, `DummyPaymentGateway` 등 결제 stub) → 사용자 확인(2026-07-13)으로 지금 별도 작업 등록하지 않음. SUB-03(결제/환불 이벤트 기반 아키텍처 전환) 계획 수립 시 이 stub이 재작성될 가능성이 높아 그때 함께 반영 제안할 것.
+  - `member/service`의 `login()` 등 Member 자체 커버리지 공백은 이번에 작업으로 등록하지 않음(추후 필요 시 별도 확인).
 
 ### Member 관련 🟠 대기 항목 (타 BC 계획 시 등록 예정, 지금 임의 생성하지 않음)
 
@@ -76,3 +88,4 @@
 - **회원 관리 (Member)**: 회원 가입/인증/정지/탈퇴, 강사 프로필, 어드민 강사 관리. 기존 구현 내역은 `.claude/PROGRESS.md`(레거시, 대조 전용) 참고.
 - **강좌 컨텐츠 관리 (Course)**: 강좌/강의/미션 CRUD 및 공개·비공개는 기존 구현 존재(대부분 🟢). soft delete, 순서(Sortable) 관리, 강의 자료 타입, 정지 강사 방어는 신규 구현 필요(⚪). COURSE-01은 강의/미션 초기 생성 상태를 도메인 문서 기준(PUBLIC)으로 맞추는 수정이 필요해 ⚪로 시작.
 - **구독권 결제 관리 (Subscription)**: 기존 구현(2026-06-23)이 도메인 문서와 상태 표현·재발급 이력·유효기간 계산·가격·결제 아키텍처에서 크게 달라 전면 재설계로 확정(2026-07-13 사용자 확정). 기존 코드 기반 🟢 판정 항목 없음 — SUB-01부터 순차 진행.
+- **Security (공통 인프라)**: JWT 인증/인가·리프레시 토큰·UserDetailsService는 이미 구현되어 있으나 단위 테스트가 전혀 없었음(2026-07-13 발견). 새 기능 없이 기존 코드에 대한 테스트 커버리지 보강만 진행(SEC-01~04).
