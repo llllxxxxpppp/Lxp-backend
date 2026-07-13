@@ -30,7 +30,7 @@
 | ID | 상태 | 작업명 | 도메인 | 담당 | 의존성 |
 |---|---|---|---|---|---|
 | MEMBER-01 | 🟢 | 회원 도메인 모델 (SINGLE_TABLE 상속, 검증, 타임스탬프) | Member | - | 없음 |
-| MEMBER-02 | 🟡 | 회원가입/로그인/로그아웃 (JWT) | Member | - | MEMBER-01 |
+| MEMBER-02 | 🟢 | 회원가입/로그인/로그아웃 (JWT) | Member | - | MEMBER-01 |
 | MEMBER-03 | 🟢 | 어드민 전용 강사 생성/정지 API | Member | - | MEMBER-01, MEMBER-02 |
 | MEMBER-04 | 🟢 | 회원 자기 관리 (비밀번호 변경/강사 프로필 수정/자진 탈퇴) | Member | - | MEMBER-01, MEMBER-02 |
 | MEMBER-05 | 🟢 | 회원 정지 처리 + 이벤트 발행 | Member | - | MEMBER-01 |
@@ -61,6 +61,10 @@
 | SUB-07 | 🟠 | 만료 임박 구독권 자동 재발급 배치 | Subscription | - | SUB-01, SUB-03 |
 
 세부 내용은 `.claude/task/task-subscription.md` 참고.
+
+### 크로스커팅 발견 사항 (아직 작업으로 등록하지 않음, 사용자 결정 필요)
+
+- **전역 테스트 라인 커버리지 79% (목표 80%, `test-code-runner-agent` 기준)**: 2026-07-13 MEMBER-02 재구현 완료 시 `./gradlew check` 실행 중 발견. MEMBER-02 자체 diff(`MemberRegisteredEvent`)는 4/4줄(100%) 커버됨 — 원인은 이 작업과 무관한 기존 미테스트 영역: `security/jwt`(19.8%), `security/refresh`(21.2%), `security/principal`(0%), `security/exception`(0%), `security/service`(25%), `subscription/infrastructure`(23.3%, `DummyPaymentGateway` 등 stub), `member/service`의 `login()` 등. 어느 BC 소관인지(보안 공통 인프라 vs 도메인별) 및 작업 분할 방식은 미결정. 사용자 확인(2026-07-13): MEMBER-02는 이 문제와 별개로 완료 처리. 신규 작업으로 등록할지, 등록한다면 어느 도메인/우선순위로 할지는 사용자 판단 필요.
 
 ### Member 관련 🟠 대기 항목 (타 BC 계획 시 등록 예정, 지금 임의 생성하지 않음)
 

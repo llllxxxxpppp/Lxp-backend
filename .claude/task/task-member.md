@@ -45,6 +45,12 @@
 **진행 기록**:
 - 근거: `MemberService.java` L50-71(login), L73-82(register), L102-110(logout), L166-170(ensureEmailNotTaken). `PROGRESS.md` "회원 서비스·컨트롤러(2026-06-24)", "JWT 기반 Spring Security 인증(2026-06-24)" 기록과 일치.
 - 판정(2026-07-13): 🟢 → 🟡로 변경(완료 무효화). 사유: 사용자가 `MEMBER.md`를 직접 수정하여 "회원가입 -> 회원가입 이벤트 발행" 규칙 및 "회원 가입 이벤트"(회원 id 필드)가 신규 추가됨(diff 확인). 현재 `MemberService.register()`는 어떠한 이벤트도 발행하지 않고 `MemberRegisteredEvent` 클래스도 존재하지 않아 신규 완료 기준 미충족. 재검증 방법: 재구현(이벤트 클래스 추가 + `register()` 발행 로직 추가). 사용자 승인(2026-07-13)으로 🟡 처리 및 재구현 진행 확정.
+- 재구현 완료(2026-07-13):
+  - 테스트 작성(4-1): `MemberServiceTest.java`에 `givenNonDuplicateEmail_whenRegister_thenSaveAndPublishMemberRegisteredEventAreInvoked`, `givenExistingEmail_whenRegister_thenThrowsMemberExceptionAndSaveAndPublishEventAreNotInvoked` 2건 추가.
+  - 구현(4-2): `event/MemberRegisteredEvent.java`(신규, `BaseDomainEvent` 상속 + `memberId` 필드) 추가, `MemberService.register()`에서 저장된 회원 id로 이벤트 발행하도록 수정.
+  - 리뷰(4-3): 승인(PASS). minor 지적 1건(테스트 코드에서 import된 클래스를 풀네임으로 재사용, `.claude/CLAUDE.md` 클래스 임포트 규칙) — blocker/major 아니므로 재작업 루프 대상 아님, 개선 여지로만 기록.
+  - 테스트 실행(4-4): `./gradlew check` 테스트 277/277 통과, PMD 위반 없음. 단, 프로젝트 전체 라인 커버리지 79%(목표 80%)로 test-code-runner-agent 기준상 FAIL 판정. JaCoCo XML 분석 결과 `MemberRegisteredEvent`는 4/4줄(100%) 커버되며, 부족분은 `security/jwt`(19.8%), `security/refresh`(21.2%), `security/principal`(0%), `security/exception`(0%), `security/service`(25%), `subscription/infrastructure`(23.3%) 등 이번 작업과 무관한 기존 미테스트 코드에서 발생함을 확인. 사용자 확인(2026-07-13): MEMBER-02는 완료로 처리하고, 전역 커버리지 공백은 별도 크로스커팅 이슈로 `TASK.md`에 기록(아래 참고).
+- 판정: 🟢 (재구현 완료 — 코드 구현 + 리뷰 승인 + 테스트 통과 277/277 + 사용자 확인, 2026-07-13)
 
 ---
 

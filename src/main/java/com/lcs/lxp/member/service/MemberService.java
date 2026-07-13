@@ -3,6 +3,7 @@ package com.lcs.lxp.member.service;
 import com.lcs.lxp.member.dto.response.TokenResponseDTO;
 import com.lcs.lxp.member.dto.response.UserResponseDTO;
 import com.lcs.lxp.member.event.InstructorSuspendedEvent;
+import com.lcs.lxp.member.event.MemberRegisteredEvent;
 import com.lcs.lxp.member.event.MemberSuspendedEvent;
 import com.lcs.lxp.member.event.MemberWithdrawnEvent;
 import com.lcs.lxp.member.exception.MemberException;
@@ -77,6 +78,8 @@ public class MemberService {
         RegularMember member = RegularMember.create(email, passwordEncoder.encode(password));
 
         Member savedUser = memberRepository.save(member);
+
+        eventPublisher.publishEvent(new MemberRegisteredEvent(savedUser.getId().value()));
 
         return UserResponseDTO.from(savedUser);
     }

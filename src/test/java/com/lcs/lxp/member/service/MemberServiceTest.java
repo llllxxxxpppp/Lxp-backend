@@ -8,6 +8,7 @@ import com.lcs.lxp.member.repository.MemberRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -49,6 +50,51 @@ class MemberServiceTest {
 
     @InjectMocks
     private MemberService memberService;
+
+    // -------------------------------------------------------------------------
+    // register
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("이메일 중복이 없으면 회원가입 시 save와 MemberRegisteredEvent 발행이 호출된다")
+    void givenNonDuplicateEmail_whenRegister_thenSaveAndPublishMemberRegisteredEventAreInvoked() {
+        String email = "user@example.com";
+        String password = "password123";
+        String encodedPassword = "encoded_password";
+
+        RegularMember savedMember = RegularMember.create(email, encodedPassword);
+        ReflectionTestUtils.setField(savedMember, "id", 1L);
+
+        when(memberRepository.existsByEmail(email)).thenReturn(false);
+        when(passwordEncoder.encode(password)).thenReturn(encodedPassword);
+        when(memberRepository.save(any(RegularMember.class))).thenReturn(savedMember);
+
+        UserResponseDTO result = memberService.register(email, password);
+
+        verify(memberRepository).save(any(RegularMember.class));
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+
+        Object publishedEvent = eventCaptor.getValue();
+        assertEquals(com.lcs.lxp.member.event.MemberRegisteredEvent.class, publishedEvent.getClass());
+        assertEquals(1L, ((com.lcs.lxp.member.event.MemberRegisteredEvent) publishedEvent).getMemberId());
+        assertEquals(1L, result.id());
+    }
+
+    @Test
+    @DisplayName("이미 존재하는 이메일로 회원가입하려 하면 MemberException이 발생하고 save와 publishEvent가 호출되지 않는다")
+    void givenExistingEmail_whenRegister_thenThrowsMemberExceptionAndSaveAndPublishEventAreNotInvoked() {
+        String email = "user@example.com";
+        String password = "password123";
+
+        when(memberRepository.existsByEmail(email)).thenReturn(true);
+
+        assertThrows(MemberException.class, () -> memberService.register(email, password));
+
+        verify(memberRepository, never()).save(any());
+        verify(applicationEventPublisher, never()).publishEvent(any());
+    }
 
     // -------------------------------------------------------------------------
     // suspendMember
