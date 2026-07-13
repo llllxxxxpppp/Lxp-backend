@@ -22,11 +22,6 @@
 
 - 공개(PUBLIC) / 비공개(PRIVATE) 상태를 표현한다. (열거형)
 
-- 논의 필요
-    - 그런데 굳이 이걸 열거형으로 할 필요가 있을까?
-    - 공개/비공개 두 가지 경우인데 bool로 해도 되지 않을까?
-    - bool로 한다면 VO 이름도 Visibility와 같은 이름으로 변경하는 것이 나을 수도 있음.
-
 ### InstructorId
 
 - 강사(회원)를 Id를 표현한다. (Long 타입)
@@ -62,7 +57,7 @@
     - soft delete 플래그: bool 타입
     - 생성자 ID: InstructorId VO
     - 제목: Title VO
-    - 설명: 텍스트, 1000자 이내, NOT NULL
+    - 설명: 텍스트, 4096자 이내, NOT NULL
     - 수정 및 삭제 일시: 객체 생성 시 NULL
 
 - 인터페이스

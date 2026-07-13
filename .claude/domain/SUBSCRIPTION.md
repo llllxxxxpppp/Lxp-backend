@@ -1,112 +1,155 @@
-# 구독권 애그리거트 (Aggregate) & CRC
+# 구독권 결제 관리 바운디드 컨텍스트
 
-## 구독권 결제 관리 바운디드 컨텍스트
+## 공통 VO
 
-### 구독권 애그리거트 (root)
+### SubscriptionId
 
-- 회원이 첫 구독권 결제 2주 이내에 취소하는 경우에는 전액 환불한다.
-- 구독권의 유효기간은 31일이다.
-- 구독권은 결제가 성공되면 생성된다.
-- 구독권 재발급은 유효기간을 31일 단위로 재발급한다.
-- 구독권 재발급은 기존 구독권 폐기 후 재발급하는 형태로 한다.
-- 만료되지 않은 구독권을 소요하고 있는 회원은 모든 서비스가 제공하는 모든 기능을 이용할 수 있다.
-- 구독권은 활성화가 되어있고 유효기간이 지나지 않았을 때 효력이 있다.
-- 회원이 정지된 경우 구독권을 정지시킨다.
-- 회원은 언제든지 구독권을 취소할 수 있다.
-- 취소 또는 정지되지 않은 구독권은 만료 1 영업일 전 재발급 요청된다.
+- 구독권 id를 표현한다.
+
+### PaymentId
+
+- 결제 Id를 표현한다.
+
+### RequestId
+
+- 멱등키를 표현한다. (UUIDv4)
+
+### RequestType
+
+- 결제 타입을 표현한다.
+    - PAYMENT (결제)
+    - REFUND (환불)
+
+### ResponseResult
+
+- 응답의 결과를 표현한다.
+    - NOT_REQUESTED (요청 전, default)
+    - SUCCESS (성공 응답)
+    - FAILED (실패 응답)
+
+## 모든 애그리거트 공통 규칙
+
+- 불변 데이터 필드
+    - 객체 Id (Long 타입)
+    - 생성 일시
+
+- 가변 데이터 필드
+    - 수정 일시
+
+## 구독권 루트 애그리거트 도메인 모델 규칙
+
+> 이름: Subscription
+
+- 불변 데이터 필드
+    - 소유 회원 ID: NOT NULL, Long
+    - 가격: NOT NULL, Long, 0 이상, 원화
+    - 구독 회차: NOT NULL, Long, 1 이상
+    - 유효 기간: NOT NULL, 계산법은 후술
+    - 루트 구독권 ID: NOT NULL, Long, 0 이상, 0은 자신이 현재 구독권 체인의 루트임을 뜻함
+    - 부모 구독권 ID: NOT NULL, Long, 0 이상, 0은 자신이 현재 구독권 체인의 루트임을 뜻함
+
+- 가변 데이터 필드
+    - 활성화 일시: 객체 생성 시 NULL, true/false는 NULL 값 여부로 판단
+    - 정지 일시: 객체 생성 시 NULL, true/false는 NULL 값 여부로 판단
+    - 취소 일시: 객체 생성 시 NULL, true/false는 NULL 값 여부로 판단
+    - 결제/환불 요청 내역 리스트: Payment 리스트 하나로 통합 관리, 각 Payment의 RequestType(PAYMENT/REFUND)으로 구분
+
+- 유료 구독권 가격은 한화 19,800원으로 한다.
+- 구독권은 활성화, 정지, 취소할 수 있다.
+
+- 구독권은 현재 효력이 있는 상태인지 리턴할 수 있다.
+- 구독권은 다음 상태일 때만 효력이 있다.
+    - 활성화 여부: true
+    - 정지 여부: false
+    - 취소 여부: 관계 없음
+    - 유효 기간: 지나지 않음
+
+- 구독권이 재발급 대상인지 리턴할 수 있다.
+    - 활성화: true
+    - 정지: false
+    - 취소: false
+    - 유효기간: 만료 2일 전
+
+- 구독권의 유효기간 정책
+    - 달력 기준 1개월(Calendar Month)로 한다.
+    - 구독 시작일에 달력 기준 1개월을 더하여 계산함.
+    - 계산된 날짜가 존재하지 않는 경우에는 해당 월의 마지막 날을 유효기간 종료일로 함.
+
+- 구독권의 유효기간 계산법: `(루트 구독권의 구독권 생성 일시).plusMonths(구독 회차).plusDays(1).truncatedTo(ChronoUnit.DAYS)`
+- 유효 기간 지남 판단 방법: `OffsetDateTime.now().isBefore(유효 기간)`
+
+- 구독권 생성
+    - 소유 회원 Id와 가격을 입력 받으며 생성할 수 있다.
+    - 루트 구독권 ID와 부모 구독권 ID는 0으로 설정하여 자신이 루트임을 지정한다.
+
+- 구독권 재발급
+    - `b = a.reissue(...)` 형태의 복사 생성자를 이용한다.
+    - 가격을 입력 받으며 생성한다.
+    - 소유 회원 ID는 `a` 에서 그대로 복사한다.
+    - 루트 구독권 ID는 `a.루트 구독권 ID` 가 `== 0` 이면 `a.id` 로, `> 0` 이면 `a.루트 구독권 ID` 를 그대로 복사한다.
+    - 부모 구독권 ID는 `a.id` 를 사용한다.
+    - 구독 회차는 `a.구독 회차 + 1` 하며 복사한다.
+    - 유효기간은 계산법을 이용하여 새로 산정한다.
+    - 그 외 필드는 생성 시 기본값을 사용한다.
+
+## 결제 애그리거트 도메인 모델 규칙
+
+> 이름: Payment
+
+- 불변 데이터 필드
+    - 멱등키
+    - 요청 타입
+
+- 가변 데이터 필드
+    - 요청 전송 일시: default NULL
+    - 응답 수신 일시: default NULL
+    - 응답 결과
+
+## 구독권 서비스 비즈니스 규칙
+
+- 구독 연장은 구독권을 재발급하는 형태로 한다.
+- 유효한 구독권을 소유하고 있는 회원은 서비스가 제공하는 모든 기능을 이용할 수 있다.
+- 회원 정지 또는 탈퇴 이벤트를 받으면 구독권을 정지시킨다.
+- 취소 또는 정지되지 않은 구독권은 만료 2일 전 재발급 요청된다.
 - 재발급이 요청되면 새 구독권을 생성된다.
-- 구독권은 비활성화 상태로 생성된다.
+- 매일 0시에 재발급 대상 구독권을 조회하여 재발급 한다.
+
+- 회원 가입 이벤트를 받으면 해당 회원에게 무료 구독권을 발급한다.
 - 구독권이 생성되면
-    - 무료 구독권이면, 구독권을 활성화한다.
-    - 무료 구독권이 아니면, 결제를 요청한다.
+    - 무료 구독권이면 -> 즉시 활성화 한다.
+    - 유료 구독권이면 -> 결제 요청 이벤트를 발행한다.
 
-#### Subscription CRC
+- 회원 정지 이벤트를 받으면
+    - 구독권을 정지한다.
 
-| Class | Responsibility | Collaborator |
-| --- | --- | --- |
-| SubscriptionService
-(애플리케이션 서비스) |   • 유효한 회원이 요청했는지 확인한다. |   • MemberService |
-|  |   • 결제 성공 응답을 받아 구독권 활성화를 위임한다. |   • SubscriptionRepository
-  • Subscription |
-|  |   • 결제 실패 응답을 받아 구독권을 결제 실패 상태로 반영한다. |   • SubscriptionRepository
-  • Subscription |
-|  |   • 구독권 취소 요청 시 환불 필요 여부를 판단하여 환불을 요청한다. |   • SubscriptionRepository
-  • PaymentService |
-|  |   • 회원 정지 이벤트를 받아 구독권 정지를 위임한다. |   • SubscriptionRepository
-  • MemberService |
-|  |   • 만료 1 영업일 전 재발급 대상 구독권을 조회하고 재발급 한다. |   • SubscriptionRepository
-  • Subscription |
-|  |   • 재발급 시 기존 구독권을 폐기 상태로 전이한다. |   • Subscription |
-| Subscription
-(애그리거트 루트) |   • 구독권을 비활성 상태로 생성한다. |   • SubscriptionId |
-|  |   • 무료 구독권이면 즉시 활성화한다. |  |
-|  |   • 현재 시점 기준 구독권이 유효한지 판단한다. |  |
-|  |   • 구독권을 취소한다. |  |
-|  |   • 구독권을 정지한다. |  |
-|  |   • 재발급 가능 여부를 판단한다. |  |
-|  |   • 결제 성공 응답 시 결제 성공 일시와 상태를 기록하고 구독권을 활성화한다. |   • Payment |
-|  |   • 결제 실패 응답 시 결제 실패 일시와 상태를 기록한다. |   • Payment |
-| SubscriptionId (VO) |   • 구독권 id를 표현한다. |  |
+- 회원 취소 이벤트를 받으면
+    - 첫 유료 구독권 결제 2주 이내이면
+        - 구독권을 정지한다.
+        - 결제를 취소한다.
+    - 아니면
+        - 구독권을 취소한다.
 
-### 결제 애그리거트
+- 결제 또는 환불 처리 결과 응답을 받으면 응답에 해당되는 Payment 객체에 그 결과를 기록하고 다음의 조치를 취한다.
+    - 결제 성공: 구독권을 활성화한다.
+    - 결제 실패: 추가 행동 없음
+    - 환불 성공: 구독권을 정지한다.
+    - 환불 실패: 추가 행동 없음
 
-- 성공적으로 결제가 완료되면 구독권을 활성화한다.
-- 결제가 요청되면 결제 대행사에 결제를 요청한다.
+## 결제 어댑터 비즈니스 규칙
 
-#### Payment CRC
+- 도메인은 인터페이스로 생성하고 구현은 테스트를 위해 stub으로 생성한다.
+- 결제 또는 환불 요청 이벤트를 받으면 결제 대행사에 결제 또는 환불 요청을 보낸다.
 
-| Class | Responsibility | Collaborator |
-| --- | --- | --- |
-| Payment (애그리게이트) |   • 구독권 결제를 위한 결제 요청을 생성한다. |   • PaymentId
-  • PaymentInfo
-  • PaymentSuccessResponse
-  • PaymentFailureResponse
-  • RefundInfo
-  • RefundSuccessResponse
-  • RefundFailureResponse
-  • PaymentStatus |
-|  |   • 결제 요청 상태를 관리한다. |  |
-|  |   • 결제 승인 결과를 영구 저장한다. |  |
-|  |   • 결제 거부 결과를 영구 저장한다. |  |
-|  |   • 이미 승인/거부된 결제의 중복 처리를 방지한다. |  |
-|  |   • 환불 요청을 생성한다. |   • Refund |
-|  |   • 환불 성공 결과를 반영한다. |   • Refund |
-|  |   • 환불 거부 결과를 반영한다. |   • Refund |
-|  |   • 이미 환불된 결제의 중복 환불을 방지한다. |   • Refund |
-| PaymentId (VO) |   • 결제 Id를 표현한다. |  |
-| PaymentInfo (VO) |   • 결제 요청 정보를 생성한다. |   • PaymentId |
-|  |   • 멱등키가 비어있지 않은지 확인한다. |  |
-|  |   • 결제 일시를 저장한다. |  |
-|  |   • 결제 금액을 저장한다. |  |
-|  |   • 결제 상태를 저장한다 |  |
-| PaymentStatus (VO) |   • 결제 상태를 표현한다.
-      ◦ 결제 요청 전 (PAYMENT_NOT_REQUESTED)
-      ◦ 결제 요청 실패 (PAYMENT_REQUEST_FAILED)
-      ◦ 결제 요청됨 (PAYMENT_REQUESTED)
-      ◦ 결제 성공 (PAYMENT_SUCCESS)
-      ◦ 결제 실패 (PAYMENT_FAILED)
-  • 환불 상태를 표현한다.
-      ◦ 환불 요청 실패 (REFUND_FAILED)
-      ◦ 환불 요청됨 (REFUND_REQUESTED)
-      ◦ 환불 성공 (REFUND_SUCCESS)
-      ◦ 환불 실패 (REFUND_FAILED) |  |
-| PaymentSuccessResponse (VO) |   • 결제 성공 응답을 표현한다. |   • PaymentId |
-| PaymentFailureResponse (VO) |   • 결제 실패 응답을 표현한다. |   • PaymentId |
-| RefundInfo (VO) |   • 환불 요청 정보를 표현한다. |   • PaymentId |
-| RefundSuccessResponse (VO) |   • 환불 성공 결과를 기록한다. |   • PaymentId |
-| RefundFailureResponse (VO) |   • 환불 실패 결과를 기록한다. |   • PaymentId |
-| PaymentAdapter |   • 외부 결제 시스템에 결제를 요청한다. |   • PaymentService |
-|  |   • 결제 승인 응답을 받아 결제 상태를 변경한다. |   • PaymentRepository
-  • PaymentService |
-|  |   • 결제 거부 응답을 받아 결제 상태를 변경한다. |   • PaymentRepository
-  • PaymentService |
-|  |   • 결제 성공 결과를 구독권으로 전달한다. |   • SubscriptionService |
-|  |   • 결제 실패 결과를 구독권으로 전달한다. |   • SubscriptionService |
-|  |   • 환불 요청을 한다. |   • PaymentService
-  • Refund |
-|  |   • 환불 성공/실패 응답을 받아 결제 상태를 변경한다. |   • PaymentRepository
-  • Refund |
-|  |   • 결제 대행사에 결제 요청을 전달한다. |   • PaymentService |
-|  |   • 결제 대행사 응답을 결제 결과로 변환한다. |   • PaymentService |
-|  |   • 결제 대행사에 환불 요청을 전달한다. |   • PaymentService
-  • Refund |
+## 이벤트 규칙
+
+### 결제 요청 이벤트
+
+- 다음 필드들을 공통 이벤트에 더불어 추가로 가진다.
+    - 구독권 id
+    - 결제 id
+
+### 환불 요청 이벤트
+
+- 다음 필드들을 공통 이벤트에 더불어 추가로 가진다.
+    - 구독권 id
+    - 결제 id
