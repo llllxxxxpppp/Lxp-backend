@@ -6,13 +6,17 @@ import com.lcs.lxp.member.dto.request.UpdateInstructorProfileRequest;
 import com.lcs.lxp.member.dto.response.UserResponseDTO;
 import com.lcs.lxp.member.model.MemberRole;
 import com.lcs.lxp.member.service.MemberService;
+import com.lcs.lxp.security.principal.CustomUserPrincipal;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -20,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -37,15 +42,42 @@ class MemberSelfControllerTest {
     @MockitoBean
     private MemberService memberService;
 
+    /**
+     * {@code resolveMemberId}는 컨트롤러 내부에서 {@code authentication.getPrincipal()}을
+     * {@link CustomUserPrincipal}로 캐스팅하여 회원 ID를 꺼낸다. {@code @WithMockUser}가 생성하는
+     * principal은 일반 스프링 시큐리티 {@code User}(UserDetails)로 {@code CustomUserPrincipal}이
+     * 아니므로 그대로 사용하면 {@code ClassCastException}이 발생한다. 실제 인증 흐름과 동일하게
+     * {@code CustomUserPrincipal}을 담은 인증 객체를 직접 주입한다.
+     */
+    private Authentication memberAuthentication(long memberId) {
+        CustomUserPrincipal principal = new CustomUserPrincipal(
+                memberId,
+                "member" + memberId + "@test.com",
+                "",
+                List.of(new SimpleGrantedAuthority("ROLE_MEMBER")),
+                false);
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+    }
+
+    private Authentication instructorAuthentication(long instructorId) {
+        CustomUserPrincipal principal = new CustomUserPrincipal(
+                instructorId,
+                "instructor" + instructorId + "@test.com",
+                "",
+                List.of(new SimpleGrantedAuthority("ROLE_INSTRUCTOR")),
+                false);
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+    }
+
     // --- PATCH /api/members/me/password (changePassword) ---
 
     @Test
-    @WithMockUser(username = "1", authorities = "ROLE_MEMBER")
     @DisplayName("인증된 회원이 비밀번호 변경을 요청하면 204 No Content를 반환한다")
     void givenAuthenticatedUser_whenChangePassword_thenReturns204() throws Exception {
         ChangePasswordRequest request = new ChangePasswordRequest("current_password", "new_password");
 
         mockMvc.perform(patch("/api/members/me/password")
+                        .with(authentication(memberAuthentication(1L)))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNoContent());
@@ -69,7 +101,6 @@ class MemberSelfControllerTest {
     // --- PATCH /api/members/me/instructor-profile (updateInstructorProfile) ---
 
     @Test
-    @WithMockUser(username = "1", authorities = "ROLE_INSTRUCTOR")
     @DisplayName("인증된 강사가 프로필 변경을 요청하면 200 OK를 반환하고 UserResponseDTO를 반환한다")
     void givenAuthenticatedInstructor_whenUpdateInstructorProfile_thenReturns200() throws Exception {
         UpdateInstructorProfileRequest request = new UpdateInstructorProfileRequest(
@@ -84,6 +115,7 @@ class MemberSelfControllerTest {
         )).thenReturn(responseDTO);
 
         mockMvc.perform(patch("/api/members/me/instructor-profile")
+                        .with(authentication(instructorAuthentication(1L)))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
@@ -112,10 +144,10 @@ class MemberSelfControllerTest {
     // --- DELETE /api/members/me (withdrawMember) ---
 
     @Test
-    @WithMockUser(username = "1", authorities = "ROLE_MEMBER")
     @DisplayName("인증된 회원이 탈퇴를 요청하면 204 No Content를 반환한다")
     void givenAuthenticatedUser_whenWithdraw_thenReturns204() throws Exception {
-        mockMvc.perform(delete("/api/members/me"))
+        mockMvc.perform(delete("/api/members/me")
+                        .with(authentication(memberAuthentication(1L))))
                 .andExpect(status().isNoContent());
 
         verify(memberService).withdrawMember(1L);
