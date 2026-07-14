@@ -47,7 +47,7 @@
 | COURSE-05 | 🟢 | 강의 자료 타입(확장자) 필드 도입 | Course | - | COURSE-01 |
 | COURSE-06a | 🟢 | 강좌/강의/미션 soft delete 모델 | Course | - | COURSE-01 |
 | COURSE-06b | 🟢 | 강좌/강의/미션 삭제 API | Course | - | COURSE-06a |
-| COURSE-07a | ⚪ | Sortable 인터페이스 + 순번 필드 | Course | - | COURSE-01 |
+| COURSE-07a | 🟢 | Sortable 인터페이스 + 순번 필드 | Course | - | COURSE-01 |
 | COURSE-07b | ⚪ | 강좌 단위 순서 변경 API | Course | - | COURSE-07a |
 | COURSE-08a | ⚪ | InstructorSuspendedEvent 리스너(정지 강사 강좌 비공개) | Course | - | MEMBER-03 |
 | COURSE-08b | ⚪ | 정지된 강사 2차 방어 인터셉터 | Course | - | COURSE-08a |

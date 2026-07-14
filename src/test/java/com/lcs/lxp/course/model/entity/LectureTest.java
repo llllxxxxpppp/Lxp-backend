@@ -3,6 +3,7 @@ package com.lcs.lxp.course.model.entity;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.InstructorId;
+import com.lcs.lxp.course.model.vo.Sortable;
 import com.lcs.lxp.course.model.vo.Title;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -49,13 +50,13 @@ class LectureTest {
     @Test
     @DisplayName("course가 null이면 강의를 생성할 수 없다")
     void givenNullCourse_whenCreateLecture_thenThrowsException() {
-        assertThrows(CourseException.class, () -> Lecture.create(null, new Title("강의"), "/lectures/1", "mp4"));
+        assertThrows(CourseException.class, () -> Lecture.create(null, new Title("강의"), "/lectures/1", "mp4", 1));
     }
 
     @Test
     @DisplayName("title이 null이면 강의를 생성할 수 없다")
     void givenNullTitle_whenCreateLecture_thenThrowsException() {
-        assertThrows(CourseException.class, () -> Lecture.create(privateCourse, null, "/lectures/1", "mp4"));
+        assertThrows(CourseException.class, () -> Lecture.create(privateCourse, null, "/lectures/1", "mp4", 1));
     }
 
     @Test
@@ -240,5 +241,21 @@ class LectureTest {
         lecture.delete();
 
         assertThrows(CourseException.class, lecture::unpublish);
+    }
+
+    // --- Sortable ---
+
+    @Test
+    @DisplayName("강의는 Sortable 인터페이스를 구현한다")
+    void givenLecture_whenCheckType_thenIsInstanceOfSortable() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        assertTrue(lecture instanceof Sortable);
+    }
+
+    @Test
+    @DisplayName("강의 생성 시 지정한 순번이 설정된다")
+    void givenSortOrder_whenCreateLecture_thenSortOrderIsSet() {
+        Lecture lecture = Lecture.create(privateCourse, new Title("강의"), "/lectures/1", "mp4", 7);
+        assertEquals(7, lecture.getSortOrder());
     }
 }

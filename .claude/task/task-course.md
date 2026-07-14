@@ -170,9 +170,22 @@
 
 **관련 규칙 위치**: `.claude/domain/COURSE.md` "모든 애그리거트 공통 규칙"(인터페이스: Sortable), "강좌 애그리거트 도메인 모델 규칙"(Sortable 리스트·고유 순번)
 
-**대상 파일**: `model/vo/Sortable.java`(신규), `model/entity/Lecture.java`, `model/entity/Mission.java`, `model/entity/Course.java`
+**대상 파일**: `model/vo/Sortable.java`(신규), `model/entity/Lecture.java`, `model/entity/Mission.java`, `model/entity/Course.java`, `src/main/resources/demo-data.sql`(시드 보정, 신규 로직 없음)
 
-**진행 기록**: (미착수) — 현재 코드에는 순번 개념이 전혀 없음(리스트 추가 순서만 존재).
+**진행 기록**:
+- 착수 전 확인: 현재 코드에는 순번 개념이 전혀 없음(리스트 추가 순서만 존재).
+- 설계 근거: `Sortable.getSortOrder()`(단일 SAM, `@FunctionalInterface`), 순번은 강의+미션 통합 시퀀스(도메인 문서의 "Sortable 객체 리스트"(단수) 표현 근거), 순번 할당은 `Lecture.create`/`Mission.create` 팩토리 파라미터로 전달(`Course.addLecture`/`addMission`의 공개 시그니처는 불변).
+- 4-1(테스트 작성): `CourseTest`/`LectureTest`/`MissionTest`에 Sortable 구현 여부, 순번 자동 할당(1,2,3...), 순번 중복 없음 검증 테스트 추가.
+- 4-2(구현, 1차): `Sortable.java` 신규, `Lecture`/`Mission`에 `sortOrder` 필드+게터, `Course.nextSortOrder() = lectures.size()+missions.size()+1`로 계산. `demo-data.sql` 시드에 `sort_order` 값 보정.
+- 4-3(리뷰, 1차): **blocker** — `nextSortOrder()`의 size 기반 계산이 `removeLecture`/`removeMission`(물리 제거) 이후 재추가 시 기존 순번과 중복될 수 있음을 재현 시나리오로 확인.
+- 4-2(재작업 1회차): `nextSortOrder()`를 "강의+미션(soft delete 포함) 전체 중 최대 sortOrder + 1" 방식으로 변경.
+- 4-3(재리뷰 1회차): PASS. 재현 시나리오 해소 확인. minor(회귀 테스트 부재) 1건 — 재작업 필수는 아니나 보강 권장.
+- 회귀 테스트 보강: `CourseTest`에 물리 제거 후 재추가 시 순번이 최댓값+1이 되고 중복되지 않음을 검증하는 테스트 추가.
+- 4-4(테스트 실행, 1차): **FAIL** — `Sortable.java`에 `@FunctionalInterface` 누락으로 PMD `ImplicitFunctionalInterface` 위반.
+- 4-2(재작업 2회차): `Sortable.java`에 `@FunctionalInterface` 어노테이션 추가.
+- 4-3(재리뷰 2회차): PASS. PMD 통과 확인.
+- 4-4(재실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 커버리지 91%.
+- 완료 근거: 리뷰 PASS(재작업 2회, 한도 3회 이내) + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 

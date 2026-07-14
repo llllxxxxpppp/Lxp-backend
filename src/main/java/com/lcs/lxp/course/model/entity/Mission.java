@@ -3,6 +3,7 @@ package com.lcs.lxp.course.model.entity;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.MissionId;
+import com.lcs.lxp.course.model.vo.Sortable;
 import com.lcs.lxp.course.model.vo.Title;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
@@ -20,7 +21,7 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "missions")
-public class Mission {
+public class Mission implements Sortable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,6 +41,9 @@ public class Mission {
     @Column(columnDefinition = "TEXT", length = 4096)
     private String content;
 
+    @Column(name = "sort_order", nullable = false)
+    private int sortOrder;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -53,7 +57,7 @@ public class Mission {
 
     protected Mission() {}
 
-    static Mission create(Course course, Title title, String content) {
+    static Mission create(Course course, Title title, String content, int sortOrder) {
         if (course == null) {
             throw new CourseException("강좌는 null일 수 없습니다.");
         }
@@ -71,6 +75,7 @@ public class Mission {
         mission.title = title;
         mission.content = content;
         mission.status = ContentStatus.PUBLIC;
+        mission.sortOrder = sortOrder;
         mission.createdAt = OffsetDateTime.now();
         return mission;
     }
@@ -93,6 +98,11 @@ public class Mission {
 
     public String getContent() {
         return content;
+    }
+
+    @Override
+    public int getSortOrder() {
+        return sortOrder;
     }
 
     public OffsetDateTime getCreatedAt() {

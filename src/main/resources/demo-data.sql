@@ -77,6 +77,7 @@ INSERT INTO lectures (
     status,
     content_url,
     content_type,
+    sort_order,
     created_at,
     updated_at,
     deleted_at
@@ -88,6 +89,7 @@ SELECT
     'PUBLIC',
     CONCAT('https://cdn.example.com/lectures/course-', c.id, '/lecture-', r.x, '.mp4'),
     'mp4',
+    r.x,
     CURRENT_TIMESTAMP,
     NULL,
     NULL
@@ -100,6 +102,7 @@ INSERT INTO missions (
     title,
     status,
     content,
+    sort_order,
     created_at,
     updated_at,
     deleted_at
@@ -110,6 +113,7 @@ SELECT
     CONCAT(c.title, ' 미션 1'),
     'PUBLIC',
     CONCAT(c.title, '에서 배운 내용을 바탕으로 결과물을 제출하고 핵심 개념을 짧게 설명하세요.'),
+    6,
     CURRENT_TIMESTAMP,
     NULL,
     NULL
@@ -121,6 +125,7 @@ INSERT INTO missions (
     title,
     status,
     content,
+    sort_order,
     created_at,
     updated_at,
     deleted_at
@@ -131,6 +136,7 @@ SELECT
     CONCAT(c.title, ' 미션 2'),
     'PUBLIC',
     CONCAT(c.title, '의 실무 적용 시나리오를 작성하고 개선 포인트를 정리하세요.'),
+    7,
     CURRENT_TIMESTAMP,
     NULL,
     NULL

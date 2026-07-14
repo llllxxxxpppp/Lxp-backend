@@ -3,6 +3,7 @@ package com.lcs.lxp.course.model.entity;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.LectureId;
+import com.lcs.lxp.course.model.vo.Sortable;
 import com.lcs.lxp.course.model.vo.Title;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
@@ -20,7 +21,7 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "lectures")
-public class Lecture {
+public class Lecture implements Sortable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,6 +44,9 @@ public class Lecture {
     @Column(nullable = false)
     private String contentType;
 
+    @Column(name = "sort_order", nullable = false)
+    private int sortOrder;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -54,7 +58,7 @@ public class Lecture {
 
     protected Lecture() {}
 
-    static Lecture create(Course course, Title title, String contentUrl, String contentType) {
+    static Lecture create(Course course, Title title, String contentUrl, String contentType, int sortOrder) {
         if (course == null) {
             throw new CourseException("강좌는 null일 수 없습니다.");
         }
@@ -73,6 +77,7 @@ public class Lecture {
         lecture.status = ContentStatus.PUBLIC;
         lecture.contentUrl = contentUrl;
         lecture.contentType = contentType;
+        lecture.sortOrder = sortOrder;
         lecture.createdAt = OffsetDateTime.now();
         return lecture;
     }
@@ -99,6 +104,11 @@ public class Lecture {
 
     public String getContentType() {
         return contentType;
+    }
+
+    @Override
+    public int getSortOrder() {
+        return sortOrder;
     }
 
     public OffsetDateTime getCreatedAt() {

@@ -5,11 +5,18 @@ import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.InstructorId;
 import com.lcs.lxp.course.model.vo.LectureId;
 import com.lcs.lxp.course.model.vo.MissionId;
+import com.lcs.lxp.course.model.vo.Sortable;
 import com.lcs.lxp.course.model.vo.Title;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -475,6 +482,90 @@ class CourseTest {
         course.delete();
 
         assertThrows(CourseException.class, course::unpublish);
+    }
+
+    // --- Sortable ---
+
+    @Test
+    @DisplayName("강좌에 첫 강의를 추가하면 순번은 1이다")
+    void givenNewCourse_whenAddFirstLecture_thenSortOrderIsOne() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+
+        assertEquals(1, lecture.getSortOrder());
+    }
+
+    @Test
+    @DisplayName("강의를 추가한 후 미션을 추가하면 미션의 순번은 2가 된다")
+    void givenCourseWithOneLecture_whenAddMission_thenMissionSortOrderIsTwo() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+
+        assertEquals(1, lecture.getSortOrder());
+        assertEquals(2, mission.getSortOrder());
+    }
+
+    @Test
+    @DisplayName("강의와 미션을 추가한 후 다시 강의를 추가하면 순번은 3이 된다")
+    void givenCourseWithLectureAndMission_whenAddAnotherLecture_thenSortOrderIsThree() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        course.addLecture(new Title("강의1"), "/lectures/1", "mp4");
+        course.addMission(new Title("미션"), "문제 내용");
+        Lecture secondLecture = course.addLecture(new Title("강의2"), "/lectures/2", "mp4");
+
+        assertEquals(3, secondLecture.getSortOrder());
+    }
+
+    @Test
+    @DisplayName("강좌에 강의와 미션을 여러 개 추가하면 순번이 모두 고유하다")
+    void givenCourse_whenAddingMultipleLecturesAndMissions_thenAllSortOrdersAreUnique() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        course.addLecture(new Title("강의1"), "/lectures/1", "mp4");
+        course.addMission(new Title("미션1"), "문제1");
+        course.addLecture(new Title("강의2"), "/lectures/2", "mp4");
+        course.addMission(new Title("미션2"), "문제2");
+        course.addLecture(new Title("강의3"), "/lectures/3", "mp4");
+
+        List<Sortable> sortables = new ArrayList<>();
+        sortables.addAll(course.getLectures());
+        sortables.addAll(course.getMissions());
+
+        List<Integer> sortOrders = sortables.stream()
+                .map(Sortable::getSortOrder)
+                .collect(Collectors.toList());
+        Set<Integer> uniqueSortOrders = new HashSet<>(sortOrders);
+
+        assertEquals(sortOrders.size(), uniqueSortOrders.size());
+    }
+
+    @Test
+    @DisplayName("강의를 물리 삭제한 후 다시 추가하면 순번이 기존 강의와 중복되지 않고 최댓값 + 1이 된다")
+    void givenLectureRemoved_whenAddLectureAgain_thenSortOrderIsMaxPlusOneAndUnique() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture firstLecture = course.addLecture(new Title("강의1"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(firstLecture, "id", 10L);
+        Lecture secondLecture = course.addLecture(new Title("강의2"), "/lectures/2", "mp4");
+        ReflectionTestUtils.setField(secondLecture, "id", 11L);
+
+        assertEquals(1, firstLecture.getSortOrder());
+        assertEquals(2, secondLecture.getSortOrder());
+
+        course.removeLecture(new LectureId(10L));
+        Lecture thirdLecture = course.addLecture(new Title("강의3"), "/lectures/3", "mp4");
+
+        assertEquals(3, thirdLecture.getSortOrder());
+
+        List<Sortable> sortables = new ArrayList<>();
+        sortables.addAll(course.getLectures());
+        sortables.addAll(course.getMissions());
+
+        List<Integer> sortOrders = sortables.stream()
+                .map(Sortable::getSortOrder)
+                .collect(Collectors.toList());
+        Set<Integer> uniqueSortOrders = new HashSet<>(sortOrders);
+
+        assertEquals(sortOrders.size(), uniqueSortOrders.size());
     }
 
 }

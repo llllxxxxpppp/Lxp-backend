@@ -21,6 +21,7 @@ import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 @Entity
 @Table(name = "courses")
@@ -161,7 +162,7 @@ public class Course {
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 추가할 수 없습니다.");
         }
-        Lecture lecture = Lecture.create(this, lectureTitle, contentUrl, contentType);
+        Lecture lecture = Lecture.create(this, lectureTitle, contentUrl, contentType, nextSortOrder());
         lectures.add(lecture);
         return lecture;
     }
@@ -171,9 +172,23 @@ public class Course {
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 미션을 추가할 수 없습니다.");
         }
-        Mission mission = Mission.create(this, missionTitle, content);
+        Mission mission = Mission.create(this, missionTitle, content, nextSortOrder());
         missions.add(mission);
         return mission;
+    }
+
+    /**
+     * 강좌 내 강의/미션(soft delete로 삭제된 항목 포함)을 통틀어 사용 중인 최대 순번 다음 값을 반환한다.
+     * size 기반 계산은 물리 삭제(removeLecture/removeMission) 후 재추가 시 순번이 중복될 수 있으므로,
+     * 실제 사용 중인 최댓값을 기준으로 계산한다.
+     */
+    private int nextSortOrder() {
+        return IntStream.concat(
+                        lectures.stream().mapToInt(Lecture::getSortOrder),
+                        missions.stream().mapToInt(Mission::getSortOrder))
+                .max()
+                .orElse(0)
+                + 1;
     }
 
     public void removeLecture(LectureId lectureId) {

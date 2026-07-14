@@ -3,6 +3,7 @@ package com.lcs.lxp.course.model.entity;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.InstructorId;
+import com.lcs.lxp.course.model.vo.Sortable;
 import com.lcs.lxp.course.model.vo.Title;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -81,13 +82,13 @@ class MissionTest {
     @Test
     @DisplayName("course가 null이면 미션을 생성할 수 없다")
     void givenNullCourse_whenCreateMission_thenThrowsException() {
-        assertThrows(CourseException.class, () -> Mission.create(null, new Title("미션"), "문제 내용"));
+        assertThrows(CourseException.class, () -> Mission.create(null, new Title("미션"), "문제 내용", 1));
     }
 
     @Test
     @DisplayName("title이 null이면 미션을 생성할 수 없다")
     void givenNullTitle_whenCreateMission_thenThrowsException() {
-        assertThrows(CourseException.class, () -> Mission.create(privateCourse, null, "문제 내용"));
+        assertThrows(CourseException.class, () -> Mission.create(privateCourse, null, "문제 내용", 1));
     }
 
     @Test
@@ -214,5 +215,21 @@ class MissionTest {
         mission.delete();
 
         assertThrows(CourseException.class, mission::unpublish);
+    }
+
+    // --- Sortable ---
+
+    @Test
+    @DisplayName("미션은 Sortable 인터페이스를 구현한다")
+    void givenMission_whenCheckType_thenIsInstanceOfSortable() {
+        Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+        assertTrue(mission instanceof Sortable);
+    }
+
+    @Test
+    @DisplayName("미션 생성 시 지정한 순번이 설정된다")
+    void givenSortOrder_whenCreateMission_thenSortOrderIsSet() {
+        Mission mission = Mission.create(privateCourse, new Title("미션"), "문제 내용", 7);
+        assertEquals(7, mission.getSortOrder());
     }
 }
