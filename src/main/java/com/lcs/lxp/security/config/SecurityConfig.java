@@ -92,13 +92,18 @@ public class SecurityConfig {
             auth.requestMatchers(HttpMethod.POST, "/api/courses").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/publish").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/unpublish").hasAnyRole("INSTRUCTOR", "ADMIN");
+            auth.requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}").hasAnyRole("INSTRUCTOR", "ADMIN");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/lectures").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/lectures/{lectureId}/publish").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/lectures/{lectureId}/unpublish")
                     .hasAnyRole("INSTRUCTOR", "ADMIN");
+            auth.requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}/lectures/{lectureId}")
+                    .hasAnyRole("INSTRUCTOR", "ADMIN");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/missions").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/missions/{missionId}/publish").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/missions/{missionId}/unpublish")
+                    .hasAnyRole("INSTRUCTOR", "ADMIN");
+            auth.requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}/missions/{missionId}")
                     .hasAnyRole("INSTRUCTOR", "ADMIN");
             auth.anyRequest().authenticated();
         });

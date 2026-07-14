@@ -92,6 +92,18 @@ public class CourseService {
         getCourse(courseId).unpublishMission(new MissionId(missionId));
     }
 
+    public void deleteCourse(Long courseId) {
+        getCourse(courseId).delete();
+    }
+
+    public void deleteLecture(Long courseId, Long lectureId) {
+        getCourse(courseId).deleteLecture(new LectureId(lectureId));
+    }
+
+    public void deleteMission(Long courseId, Long missionId) {
+        getCourse(courseId).deleteMission(new MissionId(missionId));
+    }
+
     private Course getCourse(Long courseId) {
         return courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseException("강좌를 찾을 수 없습니다."));

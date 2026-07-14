@@ -33,6 +33,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -296,6 +297,90 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
 
         verify(courseService).unpublishCourse(anyLong());
+    }
+
+    // --- deleteCourse ---
+
+    @Test
+    @WithMockUser
+    @DisplayName("강좌 삭제 요청이 성공하면 200을 반환한다")
+    void givenValidRequest_whenDeleteCourse_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1")
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteCourse(1L);
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("강좌 삭제 시 서비스에서 예외가 발생하면 400을 반환한다")
+    void givenServiceException_whenDeleteCourse_thenReturns400() throws Exception {
+        doThrow(new CourseException("삭제된 강좌는 수정할 수 없습니다."))
+                .when(courseService).deleteCourse(anyLong());
+
+        mockMvc.perform(delete("/api/courses/1")
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("삭제된 강좌는 수정할 수 없습니다."));
+
+        verify(courseService).deleteCourse(anyLong());
+    }
+
+    // --- deleteLecture ---
+
+    @Test
+    @WithMockUser
+    @DisplayName("강의 삭제 요청이 성공하면 200을 반환한다")
+    void givenValidRequest_whenDeleteLecture_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1/lectures/10")
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteLecture(1L, 10L);
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("강의 삭제 시 서비스에서 예외가 발생하면 400을 반환한다")
+    void givenServiceException_whenDeleteLecture_thenReturns400() throws Exception {
+        doThrow(new CourseException("강의를 찾을 수 없습니다."))
+                .when(courseService).deleteLecture(anyLong(), anyLong());
+
+        mockMvc.perform(delete("/api/courses/1/lectures/10")
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("강의를 찾을 수 없습니다."));
+
+        verify(courseService).deleteLecture(anyLong(), anyLong());
+    }
+
+    // --- deleteMission ---
+
+    @Test
+    @WithMockUser
+    @DisplayName("미션 삭제 요청이 성공하면 200을 반환한다")
+    void givenValidRequest_whenDeleteMission_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1/missions/20")
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteMission(1L, 20L);
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("미션 삭제 시 서비스에서 예외가 발생하면 400을 반환한다")
+    void givenServiceException_whenDeleteMission_thenReturns400() throws Exception {
+        doThrow(new CourseException("미션을 찾을 수 없습니다."))
+                .when(courseService).deleteMission(anyLong(), anyLong());
+
+        mockMvc.perform(delete("/api/courses/1/missions/20")
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("미션을 찾을 수 없습니다."));
+
+        verify(courseService).deleteMission(anyLong(), anyLong());
     }
 
     // --- createCourse validation ---

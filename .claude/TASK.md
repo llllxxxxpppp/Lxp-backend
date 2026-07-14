@@ -46,11 +46,12 @@
 | COURSE-04 | 🟢 | 강의/미션 추가 및 공개·비공개 API | Course | - | COURSE-01 |
 | COURSE-05 | 🟢 | 강의 자료 타입(확장자) 필드 도입 | Course | - | COURSE-01 |
 | COURSE-06a | 🟢 | 강좌/강의/미션 soft delete 모델 | Course | - | COURSE-01 |
-| COURSE-06b | ⚪ | 강좌/강의/미션 삭제 API | Course | - | COURSE-06a |
+| COURSE-06b | 🟢 | 강좌/강의/미션 삭제 API | Course | - | COURSE-06a |
 | COURSE-07a | ⚪ | Sortable 인터페이스 + 순번 필드 | Course | - | COURSE-01 |
 | COURSE-07b | ⚪ | 강좌 단위 순서 변경 API | Course | - | COURSE-07a |
 | COURSE-08a | ⚪ | InstructorSuspendedEvent 리스너(정지 강사 강좌 비공개) | Course | - | MEMBER-03 |
 | COURSE-08b | ⚪ | 정지된 강사 2차 방어 인터셉터 | Course | - | COURSE-08a |
+| COURSE-09 | ⚪ | 강좌/강의/미션 소유권(작성 강사 본인) 검증 전체 적용 | Course | - | 없음 |
 
 세부 내용은 `.claude/task/task-course.md` 참고.
 

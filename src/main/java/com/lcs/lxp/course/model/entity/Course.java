@@ -207,6 +207,11 @@ public class Course {
         findLecture(lectureId).unpublish();
     }
 
+    public void deleteLecture(LectureId lectureId) {
+        checkNotDeleted();
+        findLecture(lectureId).delete();
+    }
+
     public void updateMission(MissionId missionId, Title newTitle, String content) {
         checkNotDeleted();
         findMission(missionId).update(newTitle, content);
@@ -220,6 +225,11 @@ public class Course {
     public void unpublishMission(MissionId missionId) {
         checkNotDeleted();
         findMission(missionId).unpublish();
+    }
+
+    public void deleteMission(MissionId missionId) {
+        checkNotDeleted();
+        findMission(missionId).delete();
     }
 
     private Lecture findLecture(LectureId lectureId) {

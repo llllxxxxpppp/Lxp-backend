@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -310,6 +311,111 @@ class SecurityConfigTest {
     @DisplayName("일반 회원이 미션 비공개를 요청하면 403 Forbidden을 반환한다")
     void givenMemberRole_whenUnpublishMission_thenReturns403() throws Exception {
         mockMvc.perform(post("/api/courses/1/missions/20/unpublish"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(courseService);
+    }
+
+    // --- DELETE /api/courses/{courseId} (deleteCourse) ---
+
+    @Test
+    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
+    @DisplayName("강사가 강좌 삭제를 요청하면 200 OK를 반환한다")
+    void givenInstructorRole_whenDeleteCourse_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1"))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteCourse(1L);
+    }
+
+    @Test
+    @WithMockUser(authorities = "ROLE_ADMIN")
+    @DisplayName("어드민이 강좌 삭제를 요청하면 200 OK를 반환한다")
+    void givenAdminRole_whenDeleteCourse_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1"))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteCourse(1L);
+    }
+
+    @Test
+    @WithMockUser(authorities = "ROLE_MEMBER")
+    @DisplayName("일반 회원이 강좌 삭제를 요청하면 403 Forbidden을 반환한다")
+    void givenMemberRole_whenDeleteCourse_thenReturns403() throws Exception {
+        mockMvc.perform(delete("/api/courses/1"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    @DisplayName("미인증 사용자가 강좌 삭제를 요청하면 401 Unauthorized을 반환한다")
+    void givenUnauthenticated_whenDeleteCourse_thenReturns401() throws Exception {
+        mockMvc.perform(delete("/api/courses/1"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(courseService);
+    }
+
+    // --- DELETE /api/courses/{courseId}/lectures/{lectureId} (deleteLecture) ---
+
+    @Test
+    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
+    @DisplayName("강사가 강의 삭제를 요청하면 200 OK를 반환한다")
+    void givenInstructorRole_whenDeleteLecture_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1/lectures/10"))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteLecture(1L, 10L);
+    }
+
+    @Test
+    @WithMockUser(authorities = "ROLE_ADMIN")
+    @DisplayName("어드민이 강의 삭제를 요청하면 200 OK를 반환한다")
+    void givenAdminRole_whenDeleteLecture_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1/lectures/10"))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteLecture(1L, 10L);
+    }
+
+    @Test
+    @WithMockUser(authorities = "ROLE_MEMBER")
+    @DisplayName("일반 회원이 강의 삭제를 요청하면 403 Forbidden을 반환한다")
+    void givenMemberRole_whenDeleteLecture_thenReturns403() throws Exception {
+        mockMvc.perform(delete("/api/courses/1/lectures/10"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(courseService);
+    }
+
+    // --- DELETE /api/courses/{courseId}/missions/{missionId} (deleteMission) ---
+
+    @Test
+    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
+    @DisplayName("강사가 미션 삭제를 요청하면 200 OK를 반환한다")
+    void givenInstructorRole_whenDeleteMission_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1/missions/20"))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteMission(1L, 20L);
+    }
+
+    @Test
+    @WithMockUser(authorities = "ROLE_ADMIN")
+    @DisplayName("어드민이 미션 삭제를 요청하면 200 OK를 반환한다")
+    void givenAdminRole_whenDeleteMission_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1/missions/20"))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteMission(1L, 20L);
+    }
+
+    @Test
+    @WithMockUser(authorities = "ROLE_MEMBER")
+    @DisplayName("일반 회원이 미션 삭제를 요청하면 403 Forbidden을 반환한다")
+    void givenMemberRole_whenDeleteMission_thenReturns403() throws Exception {
+        mockMvc.perform(delete("/api/courses/1/missions/20"))
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(courseService);

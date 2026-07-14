@@ -148,11 +148,17 @@
 
 **관련 규칙 위치**: `.claude/domain/COURSE.md` "모든 애그리거트 공통 규칙" (삭제는 강사와 어드민만)
 
-**대상 파일**: `controller/CourseController.java`, `service/CourseService.java`, `security/config/SecurityConfig.java`
+**대상 파일**: `controller/CourseController.java`, `service/CourseService.java`, `security/config/SecurityConfig.java`, `model/entity/Course.java`(deleteLecture/deleteMission 위임 메서드 추가, 기존 publishLecture 등과 동일 패턴, 신규 로직 없음)
 
 **의존성**: COURSE-06a
 
-**진행 기록**: (미착수)
+**진행 기록**:
+- 계획 수립 중 발견(2026-07-14): 완료 기준 문구("강사 본인 또는 어드민만")가 기존 코드(수정/공개/비공개 API 전체)의 소유권 미검증 상태와 다름을 확인. 사용자 확정(2026-07-14)으로 COURSE-06b는 기존 역할 기반 패턴만 재사용하고, 소유권 검증은 COURSE-09로 분리 등록.
+- 4-1(테스트 작성): `CourseServiceTest`/`CourseControllerTest`/`SecurityConfigTest`에 강좌/강의/미션 삭제(`DELETE /api/courses/{courseId}`, `.../lectures/{lectureId}`, `.../missions/{missionId}`, 200 응답, INSTRUCTOR/ADMIN 허용·MEMBER 403·미인증 401) 테스트 추가.
+- 4-2(구현): `CourseController`(3개 `@DeleteMapping`), `CourseService`(deleteCourse/deleteLecture/deleteMission), `SecurityConfig`(3개 경로 `hasAnyRole("INSTRUCTOR","ADMIN")`) 추가. `Course.java`에 `deleteLecture`/`deleteMission` 위임 메서드 추가(기존 publishLecture 등과 동일 패턴, package-private `Lecture.delete()`/`Mission.delete()` 호출을 위해 불가피).
+- 4-3(리뷰): PASS. 변경 범위 정확, 완료 기준 충족(역할 기반 200/403/401), 위임 메서드가 불가피한 최소 변경임을 확인, COURSE-09 범위 침범 없음, 회귀 없음.
+- 4-4(테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 커버리지 91%.
+- 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 
@@ -215,6 +221,20 @@
 **의존성**: COURSE-08a (동일 이벤트/조회 인프라 공유 가능성 있음 — 착수 시 재검토)
 
 **진행 기록**: (미착수)
+
+---
+
+## [COURSE-09] 강좌/강의/미션 소유권(작성 강사 본인) 검증 전체 적용
+
+**설명**: 현재 강좌/강의/미션의 수정·공개·비공개·삭제 API는 전부 역할 기반(`hasAnyRole("INSTRUCTOR", "ADMIN")`) 검사만 수행하고, 요청자가 실제로 그 강좌를 작성한 강사 본인인지 확인하는 소유권 검증이 없다(강사 A가 강사 B의 강좌를 수정/공개/비공개/삭제할 수 있는 상태). COURSE-06b 계획 수립 중 발견(2026-07-14)됨. 사용자 확정(2026-07-14)으로 COURSE-06b는 기존 역할 기반 패턴을 그대로 유지하고, 소유권 검증은 이 작업에서 강좌/강의/미션의 수정·공개·비공개·삭제 API 전체에 일괄 적용한다.
+
+**완료 기준**: 강좌/강의/미션의 수정·공개·비공개·삭제 요청 시, 요청자가 어드민이거나 해당 강좌의 작성 강사 본인(`Course.instructorId`와 인증된 사용자 ID 일치)인 경우에만 허용, 그 외(다른 강사 등)는 403 응답
+
+**관련 규칙 위치**: `.claude/domain/COURSE.md` "모든 애그리거트 공통 규칙"("생성은 강사만", "공개는 강사만", "비공개는 강사와 어드민만", "삭제는 강사와 어드민만" — "강사"가 작성자 본인을 의미하는지 여부를 이 작업에서 확정)
+
+**대상 파일**: `controller/CourseController.java`, `service/CourseService.java` (또는 신규 인가 로직 위치), 영향받는 기존 테스트: `CourseServiceTest.java`, `CourseControllerTest.java`
+
+**진행 기록**: (미착수) — COURSE-02(강좌 수정), COURSE-04(강의/미션 추가·공개·비공개), COURSE-06b(삭제)는 이미 완료 처리되었으나 완료 기준 자체에 소유권 검증이 없었으므로 이번 발견으로 인해 완료 무효화 대상은 아님(범위 확장 신규 작업). 착수 시 위 3개 작업의 기존 테스트가 소유권 검증 추가로 깨지지 않는지 함께 확인 필요.
 
 ---
 

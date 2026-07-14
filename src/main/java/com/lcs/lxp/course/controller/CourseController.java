@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -78,6 +79,12 @@ public class CourseController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/{courseId}")
+    public ResponseEntity<Void> deleteCourse(@PathVariable Long courseId) {
+        courseService.deleteCourse(courseId);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/{courseId}/lectures")
     public ResponseEntity<Void> addLecture(
             @PathVariable Long courseId,
@@ -102,6 +109,14 @@ public class CourseController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/{courseId}/lectures/{lectureId}")
+    public ResponseEntity<Void> deleteLecture(
+            @PathVariable Long courseId,
+            @PathVariable Long lectureId) {
+        courseService.deleteLecture(courseId, lectureId);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/{courseId}/missions")
     public ResponseEntity<Void> addMission(
             @PathVariable Long courseId,
@@ -123,6 +138,14 @@ public class CourseController {
             @PathVariable Long courseId,
             @PathVariable Long missionId) {
         courseService.unpublishMission(courseId, missionId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{courseId}/missions/{missionId}")
+    public ResponseEntity<Void> deleteMission(
+            @PathVariable Long courseId,
+            @PathVariable Long missionId) {
+        courseService.deleteMission(courseId, missionId);
         return ResponseEntity.ok().build();
     }
 }

@@ -30,6 +30,7 @@ import org.springframework.data.domain.PageRequest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -399,5 +400,93 @@ class CourseServiceTest {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(CourseException.class, () -> courseService.unpublishMission(999L, 20L));
+    }
+
+    // --- deleteCourse ---
+
+    @Test
+    @DisplayName("강좌를 삭제하면 삭제 상태가 된다")
+    void givenExistingCourse_whenDeleteCourse_thenCourseIsDeleted() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.deleteCourse(1L);
+
+        assertTrue(privateCourse.isDeleted());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌를 삭제하면 예외가 발생한다")
+    void givenNonExistentCourse_whenDeleteCourse_thenThrowsException() {
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.deleteCourse(999L));
+    }
+
+    @Test
+    @DisplayName("이미 삭제된 강좌를 다시 삭제하면 예외가 발생한다")
+    void givenAlreadyDeletedCourse_whenDeleteCourse_thenThrowsException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        courseService.deleteCourse(1L);
+
+        assertThrows(CourseException.class, () -> courseService.deleteCourse(1L));
+    }
+
+    // --- deleteLecture ---
+
+    @Test
+    @DisplayName("강의를 삭제하면 삭제 상태가 된다")
+    void givenExistingLecture_whenDeleteLecture_thenLectureIsDeleted() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.deleteLecture(1L, 10L);
+
+        assertTrue(privateCourse.getLectures().get(0).isDeleted());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌의 강의를 삭제하면 예외가 발생한다")
+    void givenNonExistentCourse_whenDeleteLecture_thenThrowsException() {
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.deleteLecture(999L, 10L));
+    }
+
+    @Test
+    @DisplayName("이미 삭제된 강의를 다시 삭제하면 예외가 발생한다")
+    void givenAlreadyDeletedLecture_whenDeleteLecture_thenThrowsException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        courseService.deleteLecture(1L, 10L);
+
+        assertThrows(CourseException.class, () -> courseService.deleteLecture(1L, 10L));
+    }
+
+    // --- deleteMission ---
+
+    @Test
+    @DisplayName("미션을 삭제하면 삭제 상태가 된다")
+    void givenExistingMission_whenDeleteMission_thenMissionIsDeleted() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.deleteMission(1L, 20L);
+
+        assertTrue(privateCourse.getMissions().get(0).isDeleted());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌의 미션을 삭제하면 예외가 발생한다")
+    void givenNonExistentCourse_whenDeleteMission_thenThrowsException() {
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class, () -> courseService.deleteMission(999L, 20L));
+    }
+
+    @Test
+    @DisplayName("이미 삭제된 미션을 다시 삭제하면 예외가 발생한다")
+    void givenAlreadyDeletedMission_whenDeleteMission_thenThrowsException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        courseService.deleteMission(1L, 20L);
+
+        assertThrows(CourseException.class, () -> courseService.deleteMission(1L, 20L));
     }
 }
