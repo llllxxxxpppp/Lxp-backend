@@ -64,7 +64,13 @@
 
 **의존성**: SUB-01
 
-**진행 기록**: (미착수)
+**완료 (2026-07-14)**:
+- 테스트: `PaymentTest.java` 전면 재작성, `RequestIdTest.java`/`RequestTypeTest.java`/`ResponseResultTest.java` 신규 작성(BDD 네이밍, `@DisplayName` 준수).
+- 구현: `RequestId`(UUID 기반 VO + `generate()`), `RequestIdConverter`(JPA 컨버터), `RequestType`(PAYMENT/REFUND), `ResponseResult`(NOT_REQUESTED/SUCCESS/FAILED) 신규. `Payment.java` 전면 재작성(멱등키/요청타입 불변, 요청전송·응답수신일시·응답결과 가변, `markRequested()`/`markResponded()`). `Subscription.java`에 `List<Payment> payments` 필드 + `addPayment()`/`getPayments()`(불변 뷰) 추가(SUB-01 기존 로직 변경 없음, `reissue()` 시 독립적인 빈 리스트로 시작 확인).
+- 리뷰: 1차 승인(blocker/major 없음, minor 1건은 `RequestId` 생성자가 v4 형식 자체를 강제하지 않음 — 실제 생성 경로는 항상 `generate()`로 v4 보장되어 기능 영향 없어 기록만).
+- 테스트 실행: `PaymentTest`(16) + `RequestIdTest`(5) + `RequestTypeTest`(4) + `ResponseResultTest`(5) + `SubscriptionTest`(23) = 53/53 PASS. 도메인 패키지 커버리지 80% 이상(Payment 91%, Subscription 98%, RequestId/RequestType/ResponseResult 100%). `SubscriptionService`/`SubscriptionController`/`SubscriptionResponse`/`PaymentAdapter`/`PaymentResult`와 기존 테스트 2개는 옛 API 참조로 컴파일이 깨진 상태(SUB-03/04 범위, 사용자 확인 완료) — 이번 테스트 실행 시 해당 파일들을 임시로 컴파일 대상에서 제외한 뒤 실행하고 원상 복구함(`git status`로 원복 확인).
+- 미사용 정리 보류: `PaymentInfo`/`PaymentStatus`/`PaymentSuccessResponse`/`PaymentFailureResponse`/`RefundInfo`/`RefundSuccessResponse`/`RefundFailureResponse`는 새 `Payment` 설계로 더 이상 쓰이지 않으나, `PaymentAdapter`/`PaymentResult`/`SubscriptionService`가 아직 참조 중이라 삭제하지 않고 남겨둠(SUB-03/04에서 함께 정리 예정).
+- 완료 근거: 리뷰 승인 + 테스트 53/53 통과 + 사용자 확인(2026-07-14).
 
 ---
 

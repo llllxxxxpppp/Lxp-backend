@@ -1,13 +1,18 @@
 package com.lcs.lxp.subscription.domain.model.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -60,6 +65,10 @@ public class Subscription {
 
     @Column(name = "cancelled_at")
     private OffsetDateTime cancelledAt;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "subscription_id", nullable = false)
+    private List<Payment> payments = new ArrayList<>();
 
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -217,5 +226,16 @@ public class Subscription {
 
     public OffsetDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    /** 결제/환불 요청 내역을 하나의 리스트로 통합 조회한다. 각 Payment의 RequestType으로 구분한다. */
+    public List<Payment> getPayments() {
+        return List.copyOf(payments);
+    }
+
+    /** 신규 결제/환불 요청을 내역 리스트에 추가한다. */
+    public void addPayment(Payment payment) {
+        Objects.requireNonNull(payment, "payment는 null일 수 없습니다.");
+        payments.add(payment);
     }
 }

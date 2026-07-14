@@ -55,9 +55,9 @@
 세부 내용은 `.claude/task/task-course.md` 참고.
 
 | SUB-01 | 🟢 | 구독권 애그리거트 재설계 (상태 표현·재발급 체인·유효기간) | Subscription | - | 없음 |
-| SUB-02 | ⚪ | Payment 애그리거트 요청 리스트 구조 재설계 | Subscription | - | SUB-01 |
-| SUB-03 | 🟠 | 결제/환불 이벤트 기반 아키텍처 전환 | Subscription | - | SUB-02 |
-| SUB-04 | 🟠 | 구독권 생성/조회/취소 API 정합성 조정 (가격 19,800원) | Subscription | - | SUB-01, SUB-02 |
+| SUB-02 | 🟢 | Payment 애그리거트 요청 리스트 구조 재설계 | Subscription | - | SUB-01 |
+| SUB-03 | ⚪ | 결제/환불 이벤트 기반 아키텍처 전환 | Subscription | - | SUB-02 |
+| SUB-04 | ⚪ | 구독권 생성/조회/취소 API 정합성 조정 (가격 19,800원) | Subscription | - | SUB-01, SUB-02 |
 | SUB-05 | ⚪ | 회원가입 이벤트 리스너(무료 구독권 자동 발급) | Subscription | - | SUB-01, MEMBER-02 |
 | SUB-06 | ⚪ | 회원 정지/탈퇴 이벤트 리스너(구독권 정지·취소) | Subscription | - | SUB-01, MEMBER-05, MEMBER-04 |
 | SUB-07 | 🟠 | 만료 임박 구독권 자동 재발급 배치 | Subscription | - | SUB-01, SUB-03 |
