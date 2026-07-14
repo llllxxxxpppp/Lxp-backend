@@ -9,6 +9,8 @@ import com.lcs.lxp.course.dto.response.CourseDetailResponse;
 import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.service.CourseService;
+import com.lcs.lxp.security.principal.CustomUserPrincipal;
+
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -56,7 +58,8 @@ public class CourseController {
     public ResponseEntity<Void> createCourse(
             @RequestBody @Valid CreateCourseRequest request,
             Authentication authentication) {
-        Long instructorId = Long.parseLong(authentication.getName());
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        Long instructorId = principal.getUserId();
         courseService.createCourse(instructorId, request.title(), request.description(), request.thumbnailUrl());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }

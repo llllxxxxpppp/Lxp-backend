@@ -13,6 +13,7 @@ import com.lcs.lxp.course.model.vo.ReorderItem;
 import com.lcs.lxp.course.model.vo.SortableType;
 import com.lcs.lxp.course.model.vo.Title;
 import com.lcs.lxp.course.repository.CourseRepository;
+import com.lcs.lxp.security.aspect.RejectSuspendedInstructor;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -52,46 +53,56 @@ public class CourseService {
         return CourseDetailResponse.from(getCourse(courseId));
     }
 
+    @RejectSuspendedInstructor
     public void createCourse(Long instructorId, String title, String description, String thumbnailUrl) {
         Course course = Course.create(new InstructorId(instructorId), new Title(title), description, thumbnailUrl);
         courseRepository.save(course);
     }
 
+    @RejectSuspendedInstructor
     public void updateCourse(Long courseId, String newTitle, String description, String thumbnailUrl) {
         Course course = getCourse(courseId);
         course.update(new Title(newTitle), description, thumbnailUrl);
     }
 
+    @RejectSuspendedInstructor
     public void publishCourse(Long courseId) {
         Course course = getCourse(courseId);
         course.publish();
     }
 
+    @RejectSuspendedInstructor
     public void unpublishCourse(Long courseId) {
         Course course = getCourse(courseId);
         course.unpublish();
     }
 
+    @RejectSuspendedInstructor
     public void addLecture(Long courseId, String title, String contentUrl, String contentType) {
         getCourse(courseId).addLecture(new Title(title), contentUrl, contentType);
     }
 
+    @RejectSuspendedInstructor
     public void publishLecture(Long courseId, Long lectureId) {
         getCourse(courseId).publishLecture(new LectureId(lectureId));
     }
 
+    @RejectSuspendedInstructor
     public void unpublishLecture(Long courseId, Long lectureId) {
         getCourse(courseId).unpublishLecture(new LectureId(lectureId));
     }
 
+    @RejectSuspendedInstructor
     public void addMission(Long courseId, String title, String content) {
         getCourse(courseId).addMission(new Title(title), content);
     }
 
+    @RejectSuspendedInstructor
     public void publishMission(Long courseId, Long missionId) {
         getCourse(courseId).publishMission(new MissionId(missionId));
     }
 
+    @RejectSuspendedInstructor
     public void unpublishMission(Long courseId, Long missionId) {
         getCourse(courseId).unpublishMission(new MissionId(missionId));
     }

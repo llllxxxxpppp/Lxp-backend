@@ -248,11 +248,24 @@
 
 **관련 규칙 위치**: `.claude/rules/implementation-rules.md` "인터셉터 규칙", `.claude/domain/MEMBER.md` "인터셉터 규칙"(2026-07-13 추가, 내용 동일)
 
-**대상 파일**: `security/config/SecurityConfig.java` 또는 신규 필터/인터셉터 클래스, `service/CourseService.java`(정지 여부 확인 지점 추가)
+**대상 파일**: `security/aspect/RejectSuspendedInstructor.java`(신규), `security/aspect/SuspendedInstructorAspect.java`(신규), `security/exception/SuspendedInstructorException.java`(신규), `course/exception/CourseExceptionHandler.java`, `course/service/CourseService.java`(애노테이션 부착), `course/controller/CourseController.java`(instructorId 추출 버그 수정), `build.gradle.kts`(spring-boot-starter-aop 추가)
 
-**의존성**: COURSE-08a (동일 이벤트/조회 인프라 공유 가능성 있음 — 착수 시 재검토)
+**의존성**: COURSE-08a (동일 이벤트/조회 인프라 공유 가능성 있음 — 착수 시 재검토 결과: 직접 공유 없음, 독립적으로 구현)
 
-**진행 기록**: (미착수)
+**진행 기록**:
+- 1차 시도(Spring Security 필터): `SuspendedInstructorFilter`(`OncePerRequestFilter`)로 구현, 리뷰 PASS, 테스트 PASS까지 진행했으나 완료 처리 전 사용자 논의를 통해 설계 재검토.
+- **설계 변경(2026-07-14, 사용자 확정)**: 필터 방식(URL 패턴 수동 관리, 엔드포인트 변경 시 동기화 위험)에서 AOP 방식으로 재설계. 필터 기반 구현(미커밋 상태였음)을 전부 되돌리고 처음부터 재작업.
+- 4-1(테스트 작성): `SuspendedInstructorAspectTest`(신규, 순수 Mockito 단위 테스트), `SuspendedInstructorAspectIntegrationTest`(신규, `@SpringBootTest`+`MockMvc`, `MemberRepository`만 목킹해 실제 `CustomUserPrincipal` 인증으로 AOP 위빙+403 응답 end-to-end 검증) 작성.
+- 4-2(구현, 1차): `spring-boot-starter-aop` 추가, `RejectSuspendedInstructor`(마커 애노테이션), `SuspendedInstructorAspect`(`@Before`), `SuspendedInstructorException`, `CourseExceptionHandler`에 403 매핑, `CourseService`의 생성/수정/공개/비공개 10개 메서드에 애노테이션 부착.
+- 4-3(리뷰, 1차): PASS. 대상 메서드 10개 정확성, self-invocation 우회 가능성, 예외 계층, 프록시 모드 모두 확인.
+- 4-4(테스트 실행, 1차): **FAIL** — 통합 테스트가 실제 `CustomUserPrincipal`(이메일 기반 username)로 검증하다가, 기존(COURSE-02) `CourseController.createCourse()`의 `Long.parseLong(authentication.getName())` 버그를 발견(실제 JWT 인증 시 이메일이 반환되어 항상 `NumberFormatException`). 동일 버그가 `SubscriptionController`(2곳), `MemberSelfController`(1곳)에도 존재함을 확인.
+- **범위 확정(2026-07-14, 사용자 확정)**: COURSE-08b 범위에서 `CourseController`만 최소 수정. `MemberSelfController`(MEMBER-04)는 별도로 지금 함께 수정(완료 무효화 절차). `SubscriptionController`는 지금 수정하지 않고 `TASK.md` 크로스커팅 발견 사항에 기록만 하여 추후 SUB-0X 착수 시 반영.
+- 4-2(재작업 1회차): `CourseController.createCourse()`를 `CustomUserPrincipal.getUserId()` 사용으로 수정. `CourseControllerTest`의 관련 `@WithMockUser` 우회 테스트를 실제 `CustomUserPrincipal` 주입 방식으로 보정.
+- 4-3(재리뷰 1회차): PASS(minor 1건, 기록용 — SecurityConfig의 실제 권한 설정과 마스터 서술 간 사소한 표현 차이, 결론에 영향 없음).
+- 4-4(테스트 실행, 2차): **FAIL** — `SecurityConfigTest`에도 동일한 `@WithMockUser` 우회 패턴이 남아있어 캐스팅 예외 발생.
+- 4-1(테스트 재작업): `SecurityConfigTest`의 `createCourse` 테스트를 동일하게 실제 `CustomUserPrincipal` 주입 방식으로 보정.
+- 4-4(재실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 커버리지 93%.
+- 완료 근거: 리뷰 PASS(재작업 2회, 한도 3회 이내) + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 

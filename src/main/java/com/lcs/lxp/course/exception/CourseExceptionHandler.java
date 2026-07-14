@@ -1,6 +1,8 @@
 package com.lcs.lxp.course.exception;
 
 import com.lcs.lxp.course.dto.response.ErrorResponse;
+import com.lcs.lxp.security.exception.SuspendedInstructorException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -12,6 +14,11 @@ public class CourseExceptionHandler {
     @ExceptionHandler(CourseException.class)
     public ResponseEntity<ErrorResponse> handleCourseException(CourseException e) {
         return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+    }
+
+    @ExceptionHandler(SuspendedInstructorException.class)
+    public ResponseEntity<ErrorResponse> handleSuspendedInstructorException(SuspendedInstructorException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse(e.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

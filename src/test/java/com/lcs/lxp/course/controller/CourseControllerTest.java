@@ -15,12 +15,16 @@ import com.lcs.lxp.course.dto.response.MissionResponse;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.service.CourseService;
 import com.lcs.lxp.security.jwt.JwtTokenProvider;
+import com.lcs.lxp.security.principal.CustomUserPrincipal;
 import com.lcs.lxp.security.refresh.RefreshService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,6 +39,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -60,6 +65,23 @@ class CourseControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    /**
+     * {@code createCourse}는 컨트롤러 내부에서 {@code authentication.getPrincipal()}을
+     * {@link CustomUserPrincipal}로 캐스팅하여 강사 ID를 꺼낸다. {@code @WithMockUser}가 생성하는
+     * principal은 일반 스프링 시큐리티 {@code User}(UserDetails)로 {@code CustomUserPrincipal}이
+     * 아니므로 그대로 사용하면 {@code ClassCastException}이 발생한다. 실제 인증 흐름과 동일하게
+     * {@code CustomUserPrincipal}을 담은 인증 객체를 직접 주입한다.
+     */
+    private Authentication instructorAuthentication(long instructorId) {
+        CustomUserPrincipal principal = new CustomUserPrincipal(
+                instructorId,
+                "instructor" + instructorId + "@test.com",
+                "",
+                List.of(new SimpleGrantedAuthority("ROLE_INSTRUCTOR")),
+                false);
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+    }
 
     // --- getCourses ---
 
@@ -197,12 +219,12 @@ class CourseControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "1")
     @DisplayName("강좌 생성 요청이 성공하면 201을 반환한다")
     void givenValidRequest_whenCreateCourse_thenReturns201() throws Exception {
         CreateCourseRequest request = new CreateCourseRequest("강좌 제목", "강좌 설명", null);
 
         mockMvc.perform(post("/api/courses")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -212,7 +234,6 @@ class CourseControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "1")
     @DisplayName("강좌 생성 시 서비스에서 예외가 발생하면 400을 반환한다")
     void givenServiceException_whenCreateCourse_thenReturns400() throws Exception {
         doThrow(new CourseException("접근 권한이 없습니다."))
@@ -221,6 +242,7 @@ class CourseControllerTest {
         CreateCourseRequest request = new CreateCourseRequest("강좌 제목", "강좌 설명", null);
 
         mockMvc.perform(post("/api/courses")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -403,7 +425,7 @@ class CourseControllerTest {
     // --- createCourse validation ---
 
     @Test
-    @WithMockUser(username = "1")
+    @WithMockUser
     @DisplayName("강좌 생성 시 제목이 빈 값이면 400을 반환한다")
     void givenBlankTitle_whenCreateCourse_thenReturns400() throws Exception {
         CreateCourseRequest request = new CreateCourseRequest("", "강좌 설명", null);
@@ -418,7 +440,7 @@ class CourseControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "1")
+    @WithMockUser
     @DisplayName("강좌 생성 시 제목이 100자를 초과하면 400을 반환한다")
     void givenTitleExceeding100Chars_whenCreateCourse_thenReturns400() throws Exception {
         CreateCourseRequest request = new CreateCourseRequest("가".repeat(101), "강좌 설명", null);
@@ -467,7 +489,7 @@ class CourseControllerTest {
     // --- createCourse description validation ---
 
     @Test
-    @WithMockUser(username = "1")
+    @WithMockUser
     @DisplayName("강좌 생성 시 설명이 빈 값이면 400을 반환한다")
     void givenBlankDescription_whenCreateCourse_thenReturns400() throws Exception {
         CreateCourseRequest request = new CreateCourseRequest("강좌 제목", "", null);
@@ -482,7 +504,7 @@ class CourseControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "1")
+    @WithMockUser
     @DisplayName("강좌 생성 시 설명이 4096자를 초과하면 400을 반환한다")
     void givenDescriptionExceeding4096Chars_whenCreateCourse_thenReturns400() throws Exception {
         CreateCourseRequest request = new CreateCourseRequest("강좌 제목", "가".repeat(4097), null);

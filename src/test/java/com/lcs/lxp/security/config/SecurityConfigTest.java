@@ -6,6 +6,7 @@ import com.lcs.lxp.course.dto.request.AddMissionRequest;
 import com.lcs.lxp.course.dto.request.CreateCourseRequest;
 import com.lcs.lxp.course.dto.request.ReorderRequest;
 import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
+import com.lcs.lxp.security.principal.CustomUserPrincipal;
 import java.util.List;
 import com.lcs.lxp.course.service.CourseService;
 import org.junit.jupiter.api.DisplayName;
@@ -14,12 +15,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -41,13 +46,30 @@ class SecurityConfigTest {
 
     // --- POST /api/courses (createCourse) ---
 
+    /**
+     * {@code createCourse}는 컨트롤러 내부에서 {@code authentication.getPrincipal()}을
+     * {@link CustomUserPrincipal}로 캐스팅하여 강사 ID를 꺼낸다. {@code @WithMockUser}가 생성하는
+     * principal은 일반 스프링 시큐리티 {@code User}(UserDetails)로 {@code CustomUserPrincipal}이
+     * 아니므로 그대로 사용하면 {@code ClassCastException}이 발생한다. 실제 인증 흐름과 동일하게
+     * {@code CustomUserPrincipal}을 담은 인증 객체를 직접 주입한다.
+     */
+    private Authentication instructorAuthentication(long instructorId) {
+        CustomUserPrincipal principal = new CustomUserPrincipal(
+                instructorId,
+                "instructor" + instructorId + "@test.com",
+                "",
+                List.of(new SimpleGrantedAuthority("ROLE_INSTRUCTOR")),
+                false);
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+    }
+
     @Test
-    @WithMockUser(username = "1", authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 강좌 생성을 요청하면 201 Created를 반환한다")
     void givenInstructorRole_whenCreateCourse_thenReturns201() throws Exception {
         CreateCourseRequest request = new CreateCourseRequest("강좌 제목", "강좌 설명", null);
 
         mockMvc.perform(post("/api/courses")
+                        .with(authentication(instructorAuthentication(1L)))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
