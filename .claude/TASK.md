@@ -66,8 +66,8 @@
 
 | SEC-01 | 🟢 | JWT 토큰 발급/파싱 단위 테스트 | Security | - | 없음 |
 | SEC-02 | 🟢 | JWT 인증 필터 단위 테스트 | Security | - | 없음 |
-| SEC-03 | 🔵 | 리프레시 토큰 재발급 단위 테스트 | Security | master-session-2026-07-14 | 없음 |
-| SEC-04 | ⚪ | 인증 Principal/UserDetailsService 단위 테스트 | Security | - | 없음 |
+| SEC-03 | 🟢 | 리프레시 토큰 재발급 단위 테스트 | Security | - | 없음 |
+| SEC-04 | 🔵 | 인증 Principal/UserDetailsService 단위 테스트 | Security | master-session-2026-07-14 | 없음 |
 
 세부 내용은 `.claude/task/task-security.md` 참고.
 

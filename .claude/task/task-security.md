@@ -72,7 +72,12 @@ Security(공통 인프라) 세부 작업 파일이다. 상태의 원본은 `.cla
 
 **대상 파일**: `src/test/java/com/lcs/lxp/security/refresh/RefreshServiceTest.java`(신규), `src/test/java/com/lcs/lxp/security/refresh/RefreshTokenTest.java`(신규)
 
-**진행 기록**: (착수 전)
+**진행 기록**:
+- 4-1(테스트 작성): `RefreshServiceTest.java`(5개), `RefreshTokenTest.java`(2개) 신규 작성. 유효 토큰 재발급 성공, 만료 JWT 삭제+예외, 무효 JWT DB조회없이 예외, DB 레코드 없음 예외, DB상 만료 삭제+예외, `isExpired()` 전/후 판정 케이스 포함.
+- 4-2(구현): 기존 `RefreshService.java`/`RefreshToken.java` 구현이 완료 기준 및 SECURITY.md 서술을 그대로 충족함을 확인. 구현 코드 변경 없음.
+- 4-3(리뷰): PASS. 변경 범위가 테스트 파일 2개뿐임을 확인, 완료 기준 6항목 모두 실질 검증. `RefreshTokenTest`가 순수 assert만 사용하는 점(test-rules.md 문구와 형식적 차이)은 PMD `UnitTestShouldIncludeAssert`의 실제 목적(assert 또는 verify 중 하나)을 assert로 충족하므로 blocker/major 아님으로 판정.
+- 4-4(테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과(RefreshTokenTest의 순수 assert 기반 테스트도 PMD 규칙 통과 확인). 커버리지 89%(목표 80% 충족).
+- 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 
