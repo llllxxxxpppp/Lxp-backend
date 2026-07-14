@@ -94,4 +94,9 @@ Security(공통 인프라) 세부 작업 파일이다. 상태의 원본은 `.cla
 
 **대상 파일**: `src/test/java/com/lcs/lxp/security/principal/CustomUserPrincipalTest.java`(신규), `src/test/java/com/lcs/lxp/security/service/CustomUserDetailsServiceTest.java`(신규)
 
-**진행 기록**: (착수 전)
+**진행 기록**:
+- 4-1(테스트 작성): `CustomUserPrincipalTest.java`, `CustomUserDetailsServiceTest.java` 신규 작성. `isDeleted` 값에 따른 `isEnabled()` true/false, 존재 이메일(일반회원/강사) 조회 시 id/email/password/`ROLE_{역할명}`으로 principal 생성, 미존재 이메일 조회 시 `UsernameNotFoundException` 케이스 포함.
+- 4-2(구현): 기존 `CustomUserPrincipal.java`/`CustomUserDetailsService.java` 구현이 완료 기준 및 SECURITY.md 서술을 그대로 충족함을 확인. 구현 코드 변경 없음.
+- 4-3(리뷰): PASS. 변경 범위가 테스트 파일 2개뿐임을 확인, 완료 기준 3항목 모두 실질 검증. `Member`의 `id` 필드를 `ReflectionTestUtils.setField`로 주입하는 방식이 기존 `MemberServiceTest` 관례와 일치함을 확인.
+- 4-4(테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 전체 커버리지 91.18%, security 패키지 커버리지 98.06%(목표 80% 대폭 상회) — SEC-01~04 완결로 Security 경량 BC 커버리지 보강 작업 종료.
+- 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
