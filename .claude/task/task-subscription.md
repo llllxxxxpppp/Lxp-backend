@@ -86,7 +86,20 @@
 
 **의존성**: SUB-02
 
-**진행 기록**: (미착수) — 응답을 다시 도메인에 반영하는 구체적 흐름(동기 반환 vs 응답 이벤트)은 착수 시 설계 확정 필요.
+**설계 확정 (2026-07-14, 사용자 승인)**:
+- 응답 반영 흐름: 별도의 "응답 이벤트"를 두지 않고, `PaymentAdapter`가 `@EventListener`로 요청 이벤트를 구독해 PG stub 호출 후 그 결과를 동일 리스너 내에서 동기적으로 `Payment`/`Subscription`에 반영한다(발행 트랜잭션과 동일 스레드에서 동기 실행되는 Spring 기본 `@EventListener` 동작에 의존).
+- 결제 이벤트(`PaymentRequestedEvent`)는 `SubscriptionService.createSubscription()`의 유료 구독권 생성 흐름에 실제로 연결한다(도메인 문서에 명시된 유일한 트리거).
+- 환불 이벤트(`RefundRequestedEvent`)는 이번 작업에서 클래스와 `PaymentAdapter` 리스너 메커니즘까지만 준비하고, 실제 발행 호출부는 만들지 않는다. 도메인 문서상 환불 트리거는 "회원 취소(탈퇴) 이벤트 처리"(SUB-06, 첫 유료 결제 2주 이내 정지+환불) 문맥에만 명시되어 있고, SUB-04의 "취소 시 환불 조건(14일 이내) 로직 유지"는 기존 구현에서 넘어온 항목이라 이번 작업에서 임의로 재현하지 않는다(SUB-04/SUB-06에서 실제 호출부 연결 예정).
+- `SubscriptionService`는 `createSubscription(Long memberId, Long price)`(가격을 직접 입력받는 방식 — 무료/유료 판단 로직은 API 정합성 조정인 SUB-04 범위), `cancelSubscription(Long memberId, Long subscriptionId)`(환불 조건 없이 단순 취소만), `getSubscriptionInfo(Long subscriptionId)`만 새 도메인 모델 기준으로 재작성한다. `suspendSubscription`/`reissueExpiring`은 옛 API(`SubscriptionStatus`, `discard()` 등, SUB-01에서 이미 제거됨)를 참조하고 있고 각각 SUB-06/SUB-07이 소유할 기능이라 이번 작업에서 제거한다(재작성 시 새 리포지토리 쿼리·비즈니스 규칙을 임의로 선점하지 않기 위함). 해당 메서드는 SUB-06/SUB-07 착수 시 새로 추가된다.
+- 대상 파일에 `application/dto/response/SubscriptionResponse.java`를 추가한다(완료 기준에 없었으나, 프로젝트 규칙상 Service 리턴값은 DTO여야 하므로 `createSubscription`/`getSubscriptionInfo`가 컴파일되려면 필수. 필드를 새 `Subscription` 구조에 맞게 매핑만 하는 최소 수정이며, API 응답의 의미·가격 정합성 조정은 SUB-04에서 추가로 다룸).
+
+**완료 (2026-07-14)**:
+- 테스트: `SubscriptionServiceTest.java` 전면 재작성(`createSubscription`/`cancelSubscription`/`getSubscriptionInfo`만 다룸, `suspendSubscription`/`reissueExpiring` 테스트 제거), `PaymentAdapterTest.java` 신규.
+- 구현: `PaymentRequestedEvent`/`RefundRequestedEvent`(`BaseDomainEvent` 상속) 신규. `SubscriptionService`를 이벤트 발행 방식으로 전면 재작성(`createSubscription(memberId, price)`: 무료→즉시활성화·이벤트미발행, 유료→`PaymentRequestedEvent` 발행; `cancelSubscription`: 환불 조건 없이 단순 취소; `getSubscriptionInfo`; `suspendSubscription`/`reissueExpiring`은 제거 — SUB-06/SUB-07에서 재작성 예정). `PaymentAdapter`를 `@EventListener` 기반으로 전면 재작성(`handlePaymentRequested`/`handleRefundRequested`, PG stub 호출 후 동기 반영). `SubscriptionResponse`를 새 `Subscription` 필드 기준으로 재매핑.
+- 범위 확장(설계 확정 메모 참고): `Subscription.java`에 `markPaymentRequested(Long)`/`markPaymentResponded(Long, ResponseResult)`/`findPayment(Long)`(private) 캡슐화 메서드 추가(기존 필드·메서드는 변경 없음 — Payment는 애그리거트 자식이므로 Subscription 루트를 통해서만 변경하도록 함). `application/dto/response/SubscriptionResponse.java`도 최소 매핑 수정으로 대상 파일에 포함. 미사용이 된 `infrastructure/PaymentResult.java`는 삭제(사용자 확인, 2026-07-14).
+- 리뷰: 1차 승인(blocker/major 없음, minor 2건 — 무료 생성 분기의 직접 Payment 접근과 캡슐화 방식 간 미세한 일관성 차이, 테스트 일부의 `verify()` 누락. 둘 다 기능 결함 아님, 기록만).
+- 테스트 실행: `SubscriptionServiceTest`(6) + `PaymentAdapterTest`(6) + `PaymentTest`(16) + `RequestIdTest`(5) + `RequestTypeTest`(4) + `ResponseResultTest`(5) + `SubscriptionTest`(23) = 65/65 PASS. `SubscriptionController`/`SubscriptionControllerTest`는 옛 API(`createSubscription(Long)` 단일 인자, `reissueExpiring()`) 참조로 컴파일이 깨진 상태(SUB-04 범위, 사용자 확인 완료) — 이번 테스트 실행 시 임시로 컴파일 대상에서 제외한 뒤 실행하고 원상 복구함(`git status`로 원복 확인).
+- 완료 근거: 리뷰 승인 + 테스트 65/65 통과 + 사용자 확인(2026-07-14).
 
 ---
 

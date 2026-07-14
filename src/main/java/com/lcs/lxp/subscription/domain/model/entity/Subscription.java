@@ -1,5 +1,7 @@
 package com.lcs.lxp.subscription.domain.model.entity;
 
+import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
+import com.lcs.lxp.subscription.domain.model.vo.ResponseResult;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,6 +23,10 @@ import java.util.Objects;
  * <p>상태는 단일 enum이 아닌 활성화/정지/취소 각각의 nullable 일시로 표현한다.
  * 재발급 체인은 부모 구독권 ID / 구독 시작 일시 / 구독 회차로 추적하며,
  * 유효기간은 달력 월(Calendar Month) 기준으로 계산한다.
+ *
+ * <p>Payment는 이 애그리거트에 속한 자식 엔티티이므로, 외부에서는 Payment를 직접
+ * 변경하지 않고 이 루트가 제공하는 메서드(markPaymentRequested/markPaymentResponded)를
+ * 통해서만 상태를 변경한다.
  */
 @Entity
 @Table(name = "subscriptions")
@@ -237,5 +243,31 @@ public class Subscription {
     public void addPayment(Payment payment) {
         Objects.requireNonNull(payment, "payment는 null일 수 없습니다.");
         payments.add(payment);
+    }
+
+    /**
+     * 지정한 결제/환불 요청에 대해 외부 결제 시스템으로 요청을 전송한 사실을 기록한다.
+     * Payment는 이 애그리거트의 자식 엔티티이므로 외부에서 직접 변경하지 않고 이 메서드를
+     * 통해서만 변경한다.
+     */
+    public void markPaymentRequested(Long paymentId) {
+        findPayment(paymentId).markRequested();
+    }
+
+    /**
+     * 지정한 결제/환불 요청에 대해 외부 결제 시스템으로부터 응답을 수신한 사실을 기록한다.
+     * Payment는 이 애그리거트의 자식 엔티티이므로 외부에서 직접 변경하지 않고 이 메서드를
+     * 통해서만 변경한다.
+     */
+    public void markPaymentResponded(Long paymentId, ResponseResult result) {
+        findPayment(paymentId).markResponded(result);
+    }
+
+    private Payment findPayment(Long paymentId) {
+        Objects.requireNonNull(paymentId, "paymentId는 null일 수 없습니다.");
+        return payments.stream()
+                .filter(payment -> payment.getId().value().equals(paymentId))
+                .findFirst()
+                .orElseThrow(() -> new SubscriptionException("결제 요청을 찾을 수 없습니다."));
     }
 }

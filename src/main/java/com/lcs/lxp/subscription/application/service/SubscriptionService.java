@@ -1,57 +1,56 @@
 package com.lcs.lxp.subscription.application.service;
 
 import com.lcs.lxp.subscription.application.dto.response.SubscriptionResponse;
+import com.lcs.lxp.subscription.domain.event.PaymentRequestedEvent;
 import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
 import com.lcs.lxp.subscription.domain.model.entity.Payment;
 import com.lcs.lxp.subscription.domain.model.entity.Subscription;
-import com.lcs.lxp.subscription.domain.model.vo.PaymentInfo;
-import com.lcs.lxp.subscription.domain.model.vo.SubscriptionStatus;
+import com.lcs.lxp.subscription.domain.model.vo.RequestType;
+import com.lcs.lxp.subscription.domain.model.vo.ResponseResult;
 import com.lcs.lxp.subscription.domain.repository.SubscriptionRepository;
-import com.lcs.lxp.subscription.infrastructure.PaymentAdapter;
-import com.lcs.lxp.subscription.infrastructure.PaymentResult;
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 구독권 생성/취소/조회 유스케이스.
+ *
+ * <p>결제/환불은 더 이상 직접 호출하지 않고 이벤트({@code PaymentRequestedEvent})를
+ * 발행하는 방식으로 전환되었다. 실제 PG 호출과 결과 반영은 {@code PaymentAdapter}의
+ * 이벤트 리스너 책임이다.
+ */
 @Service
 @Transactional
 public class SubscriptionService {
 
-    private static final int MONTHLY_SUBSCRIPTION_PRICE = 9900;
+    private static final long FREE_PRICE = 0L;
 
     private final SubscriptionRepository subscriptionRepository;
-    private final PaymentAdapter paymentAdapter;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SubscriptionService(
             SubscriptionRepository subscriptionRepository,
-            PaymentAdapter paymentAdapter) {
+            ApplicationEventPublisher eventPublisher) {
         this.subscriptionRepository = subscriptionRepository;
-        this.paymentAdapter = paymentAdapter;
+        this.eventPublisher = eventPublisher;
     }
 
-    public SubscriptionResponse createSubscription(Long memberId) {
-        boolean hasExisting = subscriptionRepository.existsByMemberId(memberId);
-        int amount = hasExisting ? MONTHLY_SUBSCRIPTION_PRICE : 0;
+    public SubscriptionResponse createSubscription(Long memberId, Long price) {
+        Subscription subscription = Subscription.create(memberId, price);
+        Payment payment = Payment.create(RequestType.PAYMENT);
+        subscription.addPayment(payment);
 
-        Subscription subscription = Subscription.create(memberId);
-        PaymentInfo paymentInfo = new PaymentInfo(UUID.randomUUID().toString(), amount);
-        Payment payment = Payment.create(subscription, paymentInfo);
-        subscription.assignPayment(payment);
-        subscriptionRepository.save(subscription);
-
-        if (payment.isFree()) {
+        if (price == FREE_PRICE) {
+            payment.markRequested();
+            payment.markResponded(ResponseResult.SUCCESS);
             subscription.activate();
+            subscription = subscriptionRepository.save(subscription);
         } else {
-            PaymentResult result = paymentAdapter.requestPayment(payment);
-            if (result.success()) {
-                subscription.activateByPayment(result.successResponse());
-            } else {
-                subscription.markPaymentFailed(result.failureResponse());
-            }
+            subscription = subscriptionRepository.save(subscription);
+            Payment savedPayment = subscription.getPayments().get(0);
+            eventPublisher.publishEvent(
+                    new PaymentRequestedEvent(subscription.getId(), savedPayment.getId().value()));
         }
-        subscriptionRepository.save(subscription);
 
         return SubscriptionResponse.from(subscription);
     }
@@ -63,51 +62,8 @@ public class SubscriptionService {
             throw new SubscriptionException("본인의 구독권만 취소할 수 있습니다.");
         }
 
-        Payment payment = subscription.getPayment();
-        boolean shouldRefund = payment != null
-                && !payment.isFree()
-                && subscription.isWithinRefundPeriod();
-
-        if (shouldRefund) {
-            paymentAdapter.requestRefund(payment);
-        }
-
         subscription.cancel();
         subscriptionRepository.save(subscription);
-    }
-
-    public void suspendSubscription(Long memberId) {
-        subscriptionRepository.findByMemberIdAndStatus(memberId, SubscriptionStatus.ACTIVE)
-                .ifPresent(subscription -> {
-                    subscription.suspend();
-                    subscriptionRepository.save(subscription);
-                });
-    }
-
-    public void reissueExpiring() {
-        OffsetDateTime now = OffsetDateTime.now();
-        OffsetDateTime tomorrow = now.plusDays(1);
-        List<Subscription> expiring = subscriptionRepository
-                .findByStatusAndExpiresAtBetween(SubscriptionStatus.ACTIVE, now, tomorrow);
-
-        for (Subscription old : expiring) {
-            old.discard();
-            subscriptionRepository.save(old);
-
-            Subscription newSubscription = Subscription.create(old.getMemberId());
-            PaymentInfo paymentInfo = new PaymentInfo(UUID.randomUUID().toString(), MONTHLY_SUBSCRIPTION_PRICE);
-            Payment payment = Payment.create(newSubscription, paymentInfo);
-            newSubscription.assignPayment(payment);
-            subscriptionRepository.save(newSubscription);
-
-            PaymentResult result = paymentAdapter.requestPayment(payment);
-            if (result.success()) {
-                newSubscription.activateByPayment(result.successResponse());
-            } else {
-                newSubscription.markPaymentFailed(result.failureResponse());
-            }
-            subscriptionRepository.save(newSubscription);
-        }
     }
 
     @Transactional(readOnly = true)
