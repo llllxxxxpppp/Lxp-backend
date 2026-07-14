@@ -47,7 +47,12 @@ Security(공통 인프라) 세부 작업 파일이다. 상태의 원본은 `.cla
 
 **대상 파일**: `src/test/java/com/lcs/lxp/security/jwt/JwtAuthenticationFilterTest.java`(신규)
 
-**진행 기록**: (착수 전)
+**진행 기록**:
+- 4-1(테스트 작성): `JwtAuthenticationFilterTest.java` 신규 작성(테스트 8개). 유효 토큰 인증 설정, 만료+유효 refresh 재발급/헤더/컨텍스트 갱신, 만료+refresh 없음/`InvalidRefreshTokenException`/그 외 예외 시 컨텍스트 비움, 무효 토큰 시 컨텍스트 비움, 모든 경우 `filterChain.doFilter` 호출 케이스 포함.
+- 4-2(구현): 기존 `JwtAuthenticationFilter.java` 구현이 완료 기준 및 SECURITY.md 서술을 그대로 충족함을 확인. 구현 코드 변경 없음.
+- 4-3(리뷰): PASS. 변경 범위가 테스트 파일 1개뿐임을 확인, 완료 기준 5항목 모두 실질 검증, mock 시그니처가 실제 구현과 일치, test-rules.md 준수, `SecurityContextHolder` 오염 방지(`@BeforeEach`/`@AfterEach` clearContext) 확인.
+- 4-4(테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 커버리지 87%(목표 80% 충족).
+- 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 
