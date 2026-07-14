@@ -58,6 +58,9 @@ public class Course {
     @Column
     private OffsetDateTime updatedAt;
 
+    @Column
+    private OffsetDateTime deletedAt;
+
     private static final int MAX_DESCRIPTION_LENGTH = 4096;
 
     protected Course() {}
@@ -117,6 +120,14 @@ public class Course {
         return updatedAt;
     }
 
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    public OffsetDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
     public List<Lecture> getLectures() {
         return List.copyOf(lectures);
     }
@@ -126,6 +137,7 @@ public class Course {
     }
 
     public void update(Title newTitle, String description, String thumbnailUrl) {
+        checkNotDeleted();
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강좌를 수정할 수 없습니다.");
         }
@@ -145,6 +157,7 @@ public class Course {
     }
 
     public Lecture addLecture(Title lectureTitle, String contentUrl, String contentType) {
+        checkNotDeleted();
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 추가할 수 없습니다.");
         }
@@ -154,6 +167,7 @@ public class Course {
     }
 
     public Mission addMission(Title missionTitle, String content) {
+        checkNotDeleted();
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 미션을 추가할 수 없습니다.");
         }
@@ -163,6 +177,7 @@ public class Course {
     }
 
     public void removeLecture(LectureId lectureId) {
+        checkNotDeleted();
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 삭제할 수 없습니다.");
         }
@@ -170,6 +185,7 @@ public class Course {
     }
 
     public void removeMission(MissionId missionId) {
+        checkNotDeleted();
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 미션을 삭제할 수 없습니다.");
         }
@@ -177,26 +193,32 @@ public class Course {
     }
 
     public void updateLecture(LectureId lectureId, Title newTitle, String contentUrl, String contentType) {
+        checkNotDeleted();
         findLecture(lectureId).update(newTitle, contentUrl, contentType);
     }
 
     public void publishLecture(LectureId lectureId) {
+        checkNotDeleted();
         findLecture(lectureId).publish();
     }
 
     public void unpublishLecture(LectureId lectureId) {
+        checkNotDeleted();
         findLecture(lectureId).unpublish();
     }
 
     public void updateMission(MissionId missionId, Title newTitle, String content) {
+        checkNotDeleted();
         findMission(missionId).update(newTitle, content);
     }
 
     public void publishMission(MissionId missionId) {
+        checkNotDeleted();
         findMission(missionId).publish();
     }
 
     public void unpublishMission(MissionId missionId) {
+        checkNotDeleted();
         findMission(missionId).unpublish();
     }
 
@@ -215,6 +237,7 @@ public class Course {
     }
 
     public void publish() {
+        checkNotDeleted();
         if (lectures.isEmpty() || missions.isEmpty()) {
             throw new CourseException("강의와 미션을 1개 이상 포함해야 공개할 수 있습니다.");
         }
@@ -223,7 +246,19 @@ public class Course {
     }
 
     public void unpublish() {
+        checkNotDeleted();
         this.status = ContentStatus.PRIVATE;
         this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void delete() {
+        checkNotDeleted();
+        this.deletedAt = OffsetDateTime.now();
+    }
+
+    private void checkNotDeleted() {
+        if (deletedAt != null) {
+            throw new CourseException("삭제된 강좌는 수정할 수 없습니다.");
+        }
     }
 }

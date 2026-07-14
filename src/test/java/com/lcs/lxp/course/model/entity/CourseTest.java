@@ -13,9 +13,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CourseTest {
 
@@ -302,6 +304,177 @@ class CourseTest {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
 
         assertThrows(CourseException.class, () -> course.removeMission(new MissionId(999L)));
+    }
+
+    // --- delete ---
+
+    @Test
+    @DisplayName("강좌 생성 시 삭제 플래그는 false이고 삭제일시는 null이다")
+    void givenNewCourse_whenCreated_thenNotDeletedAndDeletedAtIsNull() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+
+        assertFalse(course.isDeleted());
+        assertNull(course.getDeletedAt());
+    }
+
+    @Test
+    @DisplayName("강좌를 삭제하면 삭제 플래그가 true가 되고 삭제일시가 설정된다")
+    void givenCourse_whenDelete_thenDeletedFlagIsTrueAndDeletedAtIsSet() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+
+        course.delete();
+
+        assertTrue(course.isDeleted());
+        assertNotNull(course.getDeletedAt());
+    }
+
+    @Test
+    @DisplayName("이미 삭제된 강좌를 다시 삭제하면 예외가 발생한다")
+    void givenDeletedCourse_whenDeleteAgain_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        course.delete();
+
+        assertThrows(CourseException.class, course::delete);
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌를 수정하면 예외가 발생한다")
+    void givenDeletedCourse_whenUpdate_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.update(new Title("수정된 제목"), "수정된 설명", null));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌에 강의를 추가하면 예외가 발생한다")
+    void givenDeletedCourse_whenAddLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.addLecture(new Title("강의"), "/lectures/1", "mp4"));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌에 미션을 추가하면 예외가 발생한다")
+    void givenDeletedCourse_whenAddMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.addMission(new Title("미션"), "문제 내용"));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌에서 강의를 삭제하면 예외가 발생한다")
+    void givenDeletedCourse_whenRemoveLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(10L)));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌에서 미션을 삭제하면 예외가 발생한다")
+    void givenDeletedCourse_whenRemoveMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(20L)));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌를 통해 강의를 수정하면 예외가 발생한다")
+    void givenDeletedCourse_whenUpdateLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        course.delete();
+
+        assertThrows(CourseException.class,
+                () -> course.updateLecture(new LectureId(10L), new Title("수정된 강의"), "/lectures/1", "mp4"));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌를 통해 강의를 공개하면 예외가 발생한다")
+    void givenDeletedCourse_whenPublishLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.publishLecture(new LectureId(10L)));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌를 통해 강의를 비공개하면 예외가 발생한다")
+    void givenDeletedCourse_whenUnpublishLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.unpublishLecture(new LectureId(10L)));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌를 통해 미션을 수정하면 예외가 발생한다")
+    void givenDeletedCourse_whenUpdateMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+        course.delete();
+
+        assertThrows(CourseException.class,
+                () -> course.updateMission(new MissionId(20L), new Title("수정된 미션"), "수정된 문제"));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌를 통해 미션을 공개하면 예외가 발생한다")
+    void givenDeletedCourse_whenPublishMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.publishMission(new MissionId(20L)));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌를 통해 미션을 비공개하면 예외가 발생한다")
+    void givenDeletedCourse_whenUnpublishMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.unpublishMission(new MissionId(20L)));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌를 공개하면 예외가 발생한다")
+    void givenDeletedCourse_whenPublish_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        course.addMission(new Title("미션"), "문제 내용");
+        course.delete();
+
+        assertThrows(CourseException.class, course::publish);
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌를 비공개하면 예외가 발생한다")
+    void givenDeletedCourse_whenUnpublish_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        course.addMission(new Title("미션"), "문제 내용");
+        course.publish();
+        course.delete();
+
+        assertThrows(CourseException.class, course::unpublish);
     }
 
 }

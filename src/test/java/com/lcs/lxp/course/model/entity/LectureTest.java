@@ -10,9 +10,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LectureTest {
 
@@ -179,5 +181,64 @@ class LectureTest {
         lecture.unpublish();
 
         assertEquals(ContentStatus.PRIVATE, lecture.getStatus());
+    }
+
+    // --- delete ---
+
+    @Test
+    @DisplayName("강의 생성 시 삭제 플래그는 false이고 삭제일시는 null이다")
+    void givenNewLecture_whenCreated_thenNotDeletedAndDeletedAtIsNull() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1", "mp4");
+
+        assertFalse(lecture.isDeleted());
+        assertNull(lecture.getDeletedAt());
+    }
+
+    @Test
+    @DisplayName("강의를 삭제하면 삭제 플래그가 true가 되고 삭제일시가 설정된다")
+    void givenLecture_whenDelete_thenDeletedFlagIsTrueAndDeletedAtIsSet() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1", "mp4");
+
+        lecture.delete();
+
+        assertTrue(lecture.isDeleted());
+        assertNotNull(lecture.getDeletedAt());
+    }
+
+    @Test
+    @DisplayName("이미 삭제된 강의를 다시 삭제하면 예외가 발생한다")
+    void givenDeletedLecture_whenDeleteAgain_thenThrowsException() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        lecture.delete();
+
+        assertThrows(CourseException.class, lecture::delete);
+    }
+
+    @Test
+    @DisplayName("삭제된 강의를 수정하면 예외가 발생한다")
+    void givenDeletedLecture_whenUpdate_thenThrowsException() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        lecture.delete();
+
+        assertThrows(CourseException.class, () -> lecture.update(new Title("수정된 강의"), "/lectures/1", "mp4"));
+    }
+
+    @Test
+    @DisplayName("삭제된 강의를 공개하면 예외가 발생한다")
+    void givenDeletedLecture_whenPublish_thenThrowsException() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        lecture.unpublish();
+        lecture.delete();
+
+        assertThrows(CourseException.class, lecture::publish);
+    }
+
+    @Test
+    @DisplayName("삭제된 강의를 비공개하면 예외가 발생한다")
+    void givenDeletedLecture_whenUnpublish_thenThrowsException() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        lecture.delete();
+
+        assertThrows(CourseException.class, lecture::unpublish);
     }
 }

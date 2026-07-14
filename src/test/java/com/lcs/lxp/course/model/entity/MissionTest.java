@@ -10,9 +10,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MissionTest {
 
@@ -153,5 +155,64 @@ class MissionTest {
         mission.unpublish();
 
         assertEquals(ContentStatus.PRIVATE, mission.getStatus());
+    }
+
+    // --- delete ---
+
+    @Test
+    @DisplayName("미션 생성 시 삭제 플래그는 false이고 삭제일시는 null이다")
+    void givenNewMission_whenCreated_thenNotDeletedAndDeletedAtIsNull() {
+        Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+
+        assertFalse(mission.isDeleted());
+        assertNull(mission.getDeletedAt());
+    }
+
+    @Test
+    @DisplayName("미션을 삭제하면 삭제 플래그가 true가 되고 삭제일시가 설정된다")
+    void givenMission_whenDelete_thenDeletedFlagIsTrueAndDeletedAtIsSet() {
+        Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+
+        mission.delete();
+
+        assertTrue(mission.isDeleted());
+        assertNotNull(mission.getDeletedAt());
+    }
+
+    @Test
+    @DisplayName("이미 삭제된 미션을 다시 삭제하면 예외가 발생한다")
+    void givenDeletedMission_whenDeleteAgain_thenThrowsException() {
+        Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+        mission.delete();
+
+        assertThrows(CourseException.class, mission::delete);
+    }
+
+    @Test
+    @DisplayName("삭제된 미션을 수정하면 예외가 발생한다")
+    void givenDeletedMission_whenUpdate_thenThrowsException() {
+        Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+        mission.delete();
+
+        assertThrows(CourseException.class, () -> mission.update(new Title("수정된 미션"), "수정된 문제 내용"));
+    }
+
+    @Test
+    @DisplayName("삭제된 미션을 공개하면 예외가 발생한다")
+    void givenDeletedMission_whenPublish_thenThrowsException() {
+        Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+        mission.unpublish();
+        mission.delete();
+
+        assertThrows(CourseException.class, mission::publish);
+    }
+
+    @Test
+    @DisplayName("삭제된 미션을 비공개하면 예외가 발생한다")
+    void givenDeletedMission_whenUnpublish_thenThrowsException() {
+        Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+        mission.delete();
+
+        assertThrows(CourseException.class, mission::unpublish);
     }
 }

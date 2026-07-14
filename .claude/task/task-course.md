@@ -115,15 +115,28 @@
 
 ## [COURSE-06a] 강좌/강의/미션 soft delete 모델
 
-**설명**: `Course`/`Lecture`/`Mission` 공통으로 soft delete 플래그(bool) 도입. 삭제된 엔티티는 어떠한 필드도 수정 불가하도록 도메인 메서드에 가드 추가.
+**설명**: `Course`/`Lecture`/`Mission` 공통으로 soft delete를 도입. 삭제된 엔티티는 어떠한 필드도 수정 불가하도록 도메인 메서드에 가드 추가. (2026-07-14 설계 변경: 별도의 boolean 플래그 없이 `deletedAt`(삭제 일시) 하나만으로 삭제 여부를 판단 — 아래 진행 기록 참고)
 
-**완료 기준**: 각 엔티티에 `delete()` 도메인 메서드로 삭제 플래그 true 처리, 삭제된 엔티티의 수정/공개/비공개 메서드 호출 시 예외 발생
+**완료 기준**: 각 엔티티에 `delete()` 도메인 메서드로 삭제 일시(`deletedAt`) 설정, 삭제된 엔티티(`deletedAt != null`)의 수정/공개/비공개 메서드 호출 시 예외 발생
 
-**관련 규칙 위치**: `.claude/domain/COURSE.md` "모든 애그리거트 공통 규칙" (soft delete 플래그, 삭제된 데이터 수정 불가)
+**관련 규칙 위치**: `.claude/domain/COURSE.md` "모든 애그리거트 공통 규칙" (삭제 일시, 삭제된 데이터 수정 불가)
 
-**대상 파일**: `model/entity/Course.java`, `model/entity/Lecture.java`, `model/entity/Mission.java`
+**대상 파일**: `model/entity/Course.java`, `model/entity/Lecture.java`, `model/entity/Mission.java`, `src/main/resources/demo-data.sql`(시드 보정, 신규 로직 없음)
 
-**진행 기록**: (미착수) — 현재 코드에는 물리 삭제 엔드포인트가 있었으나 제거된 상태(`PROGRESS.md` "강의·미션 물리 삭제 엔드포인트 제거(2026-06-23)")이며, soft delete는 아직 어떤 형태로도 구현되어 있지 않음.
+**진행 기록**:
+- 착수 전 확인: 현재 코드에는 물리 삭제 엔드포인트가 있었으나 제거된 상태(`PROGRESS.md` "강의·미션 물리 삭제 엔드포인트 제거(2026-06-23)")이며, soft delete는 아직 어떤 형태로도 구현되어 있지 않음.
+- 4-1(테스트 작성): `CourseTest`/`LectureTest`/`MissionTest`에 `delete()` 호출 시 삭제 상태 반영, 삭제된 엔티티의 수정/공개/비공개/재삭제 시 예외 발생 케이스 추가. `Course`의 하위 강의/미션 위임 메서드 9개에 대한 "삭제된 강좌를 통한 조작 차단" 케이스 포함.
+- 4-2(구현, 1차): `deleted`(boolean)+`deletedAt`(OffsetDateTime) 두 필드 도입, `isDeleted()`/`getDeletedAt()` 게터, `delete()`, `checkNotDeleted()` 가드를 각 엔티티의 모든 수정성 메서드에 삽입.
+- 4-3(리뷰, 1차): PASS. 가드 커버리지, 재삭제 방지, 타임스탬프 규칙, COURSE-01~05 회귀 없음 확인.
+- 4-4(테스트 실행, 1차): FAIL — `demo-data.sql` 시드가 신규 `deleted`(NOT NULL) 컬럼을 채우지 않아 `@SpringBootTest` 컨텍스트 초기화 실패(40개 테스트 FAIL). 구현/스키마 문제로 판별.
+- 4-2(재작업 1회차): `demo-data.sql`의 `courses`/`lectures`/`missions` INSERT에 `deleted`(FALSE)/`deleted_at`(NULL) 값 보정.
+- 4-3(재리뷰): PASS. 컬럼/값 개수 일치, 순수 시드 보정 확인.
+- 4-4(재실행): PASS. BUILD SUCCESSFUL, PMD 통과, 커버리지 91%, 294개 테스트 전체 통과.
+- **설계 변경(2026-07-14, 사용자 지시)**: 완료 처리/커밋 전 사용자가 `deleted`(boolean)와 `deletedAt`이 중복 정보라는 점을 지적 — `delete()`라는 단일 진입점에서만 둘이 동시에 세팅되는 구조이므로 `deletedAt != null` 하나로 삭제 여부를 판단해도 상태 불일치 위험이 없음을 확인. `.claude/domain/COURSE.md` "모든 애그리거트 공통 규칙" 가변 데이터 필드 항목에서 "soft delete 플래그: bool 타입" 삭제, "삭제 일시가 NULL이 아니면 삭제된 것으로 판단한다"로 명시(사용자 승인). 이 작업은 아직 완료 처리·커밋 전이었으므로 완료 무효화(🟡) 절차 없이 같은 사이클 내에서 재구현으로 처리.
+- 4-2(재구현): `deleted` 필드 완전 제거, `isDeleted()` → `return deletedAt != null;`, `checkNotDeleted()` → `if (deletedAt != null)`, `delete()`는 `deletedAt`만 세팅, `create()`의 `deleted=false` 초기화 제거. `demo-data.sql`의 `deleted` 컬럼/값 제거(`deleted_at`만 유지). 테스트는 `isDeleted()` 공개 API만 참조하므로 무수정.
+- 4-3(재구현 리뷰): PASS. minor 2건(테스트명/`@DisplayName`에 "삭제 플래그" 문구 잔존, 진행 기록 서술 정확성) — 기능상 문제 없어 재작업 불필요, 참고 기록만 함.
+- 4-4(재구현 테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 커버리지 92.15%. 회귀 없음.
+- 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 

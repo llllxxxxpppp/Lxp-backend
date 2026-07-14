@@ -54,11 +54,10 @@
     - 생성 일시
 
 - 가변 데이터 필드
-    - soft delete 플래그: bool 타입
     - 생성자 ID: InstructorId VO
     - 제목: Title VO
     - 설명: 텍스트, 4096자 이내, NOT NULL
-    - 수정 및 삭제 일시: 객체 생성 시 NULL
+    - 수정 및 삭제 일시: 객체 생성 시 NULL (삭제 일시가 NULL이 아니면 삭제된 것으로 판단한다 — 별도의 soft delete 플래그 필드는 두지 않는다)
 
 - 인터페이스
     - Sortable: 강의와 미션이 구현하여 강좌 단위로 순서를 변경할 수 있도록 한다.
