@@ -39,6 +39,14 @@
 
 **진행 기록**: (미착수) — 기존 코드는 `SubscriptionStatus` enum 단일 필드 + 고정 31일 만료로 구현되어 있어 전면 재작성 대상(`Subscription.java` 전체 확인, 2026-07-13). 2026-07-14: `SUBSCRIPTION.md` 갱신(커밋 c37f920)에 맞춰 완료 기준의 "루트 구독권 ID" 관련 항목을 "구독 시작 일시" 필드 기반으로 수정(루트 구독권 ID 필드 자체가 삭제됨).
 
+**완료 (2026-07-14)**:
+- 테스트: `src/test/java/com/lcs/lxp/subscription/domain/SubscriptionTest.java` 전면 재작성(BDD 네이밍, `@DisplayName` 준수).
+- 구현: `Subscription.java` 전면 재작성(활성화/정지/취소 각각 nullable `OffsetDateTime`, 부모 구독권 ID, 구독 시작 일시, 구독 회차, `reissue()`, 달력 월 유효기간 계산). `SubscriptionRepository.java`는 삭제된 필드(`status`, `expiresAt`) 참조 파생 쿼리 제거.
+- 리뷰 1차: major 1건 — `isEligibleForReissue()`가 이미 만료된 지 오래된 구독권도 재발급 대상으로 오판정(하한 조건 누락). `isNearExpiry()`에 `!isExpired()` 하한 추가로 수정, 회귀 테스트(`givenActivatedButAlreadyExpiredLongAgo_whenIsEligibleForReissue_thenReturnsFalse`) 추가.
+- 리뷰 2차: PASS (minor 1건 기록만 — `isNearExpiry()` 내 `now` 호출이 완전히 단일 스냅샷은 아님, 기능 영향 없음).
+- 테스트 실행: `SubscriptionTest` 23/23 PASS. `SubscriptionService`/`SubscriptionController`/`SubscriptionResponse`와 기존 테스트(`PaymentTest`, `SubscriptionServiceTest`, `SubscriptionControllerTest`)는 옛 API 참조로 컴파일이 깨진 상태(SUB-04 범위, 사용자 확인 완료) — 이번 테스트 실행 시 해당 파일들을 임시로 컴파일 대상에서 제외한 뒤 실행하고 원상 복구함(`git status`로 원복 확인).
+- 완료 근거: 리뷰 승인 + 테스트 23/23 통과 + 사용자 확인(2026-07-14).
+
 ---
 
 ## [SUB-02] Payment 애그리거트를 요청 리스트 구조로 재설계
