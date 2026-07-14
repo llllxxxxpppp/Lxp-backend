@@ -119,6 +119,14 @@ public class CourseService {
         getCourse(courseId).reorder(orderedItems);
     }
 
+    public void unpublishAllByInstructor(Long instructorId) {
+        List<Course> publicCourses =
+                courseRepository.findAllByInstructorIdAndStatusAndDeletedAtIsNull(instructorId, ContentStatus.PUBLIC);
+        for (Course course : publicCourses) {
+            course.unpublish();
+        }
+    }
+
     private Course getCourse(Long courseId) {
         return courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseException("강좌를 찾을 수 없습니다."));

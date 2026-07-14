@@ -553,4 +553,55 @@ class CourseServiceTest {
         assertThrows(CourseException.class, () -> courseService.reorderItems(
                 1L, List.of("LECTURE", "LECTURE"), List.of(10L, 10L)));
     }
+
+    // --- unpublishAllByInstructor (COURSE-08a: InstructorSuspendedEvent 처리) ---
+
+    @Test
+    @DisplayName("강사의 공개 강좌 목록을 대량 비공개 처리하면 모두 PRIVATE 상태가 된다")
+    void givenInstructorWithMultiplePublicCourses_whenUnpublishAllByInstructor_thenAllCoursesBecomePrivate() {
+        Course course1 = publishedCourseOf(1L, "강좌 1");
+        Course course2 = publishedCourseOf(1L, "강좌 2");
+        when(courseRepository.findAllByInstructorIdAndStatusAndDeletedAtIsNull(1L, ContentStatus.PUBLIC))
+                .thenReturn(List.of(course1, course2));
+
+        courseService.unpublishAllByInstructor(1L);
+
+        assertEquals(ContentStatus.PRIVATE, course1.getStatus());
+        assertEquals(ContentStatus.PRIVATE, course2.getStatus());
+        verify(courseRepository).findAllByInstructorIdAndStatusAndDeletedAtIsNull(1L, ContentStatus.PUBLIC);
+    }
+
+    @Test
+    @DisplayName("다른 강사의 강좌는 대량 비공개 처리 대상에서 제외되어 상태가 유지된다")
+    void givenOtherInstructorPublicCourse_whenUnpublishAllByInstructor_thenOtherInstructorCourseIsUnaffected() {
+        Course targetInstructorCourse = publishedCourseOf(1L, "강좌");
+        Course otherInstructorCourse = publishedCourseOf(2L, "다른 강사 강좌");
+        when(courseRepository.findAllByInstructorIdAndStatusAndDeletedAtIsNull(1L, ContentStatus.PUBLIC))
+                .thenReturn(List.of(targetInstructorCourse));
+
+        courseService.unpublishAllByInstructor(1L);
+
+        assertEquals(ContentStatus.PRIVATE, targetInstructorCourse.getStatus());
+        assertEquals(ContentStatus.PUBLIC, otherInstructorCourse.getStatus());
+        verify(courseRepository).findAllByInstructorIdAndStatusAndDeletedAtIsNull(1L, ContentStatus.PUBLIC);
+    }
+
+    @Test
+    @DisplayName("공개 강좌가 없는 강사를 대상으로 대량 비공개 처리를 요청하면 예외 없이 아무 강좌도 변경하지 않는다")
+    void givenInstructorWithNoPublicCourses_whenUnpublishAllByInstructor_thenNoChangesOccur() {
+        when(courseRepository.findAllByInstructorIdAndStatusAndDeletedAtIsNull(1L, ContentStatus.PUBLIC))
+                .thenReturn(List.of());
+
+        courseService.unpublishAllByInstructor(1L);
+
+        verify(courseRepository).findAllByInstructorIdAndStatusAndDeletedAtIsNull(1L, ContentStatus.PUBLIC);
+    }
+
+    private Course publishedCourseOf(long instructorId, String title) {
+        Course course = Course.create(new InstructorId(instructorId), new Title(title), "강좌 설명", null);
+        course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        course.addMission(new Title("미션"), "문제 내용");
+        course.publish();
+        return course;
+    }
 }

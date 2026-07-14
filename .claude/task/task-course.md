@@ -225,7 +225,18 @@
 
 **의존성**: MEMBER-03(🟢, `InstructorSuspendedEvent` 발행 주체)
 
-**진행 기록**: (미착수) — `TASK.md`의 "Member 관련 🟠 대기 항목"에 있던 자리표시자를 이번 계획에서 COURSE-08a/08b로 구체화함(치환 근거: MEMBER-03이 이미 🟢로 완료되어 의존성 충족).
+**진행 기록**:
+- 착수 전 확인: `TASK.md`의 "Member 관련 🟠 대기 항목"에 있던 자리표시자를 이번 계획에서 COURSE-08a/08b로 구체화함(치환 근거: MEMBER-03이 이미 🟢로 완료되어 의존성 충족).
+- 4-1(테스트 작성): `CourseRepositoryTest`(신규, `@DataJpaTest`), `CourseServiceTest`(unpublishAllByInstructor 3개 테스트), `InstructorSuspendedEventListenerTest`(신규, Mockito) 작성.
+- 4-2(구현, 1차): `CourseRepository.findAllByInstructorIdAndStatus`, `CourseService.unpublishAllByInstructor`, `InstructorSuspendedEventListener`(신규, `@TransactionalEventListener(AFTER_COMMIT)`, 시작/종료 info 로그) 추가.
+- 4-3(리뷰, 1차): **major** — soft delete되었으나 status가 PUBLIC으로 남은 강좌가 조회에 포함되면 `unpublish()` 호출 시 예외로 배치(해당 강사의 다른 강좌 포함) 전체가 롤백될 위험 확인. `@TransactionalEventListener(AFTER_COMMIT)` 선택 근거(`MemberService.suspendInstructor`가 `@Transactional` 내부에서 이벤트 발행)는 타당함을 확인.
+- 4-2(재작업 1회차): `findAllByInstructorIdAndStatusAndDeletedAtIsNull`로 변경(`deletedAt IS NULL` 조건 추가), 호출부 보정.
+- 회귀 테스트 보강: `CourseRepositoryTest`에 soft delete된 PUBLIC 강좌가 조회에서 제외됨을 검증하는 테스트 추가.
+- 4-3(재리뷰): PASS. 파생 쿼리 정확성, 회귀 테스트 실효성, 기존 케이스 유지, 리스너 미변경(범위 준수) 확인.
+- 4-4(테스트 실행, 1차): **FAIL** — 회귀 테스트의 PMD 위반(`LiteralsFirstInComparisons`).
+- 4-1(테스트 재작업): 문자열 리터럴을 비교 앞쪽에 두도록 수정(검증 로직 변경 없음).
+- 4-4(재실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 커버리지 92%.
+- 완료 근거: 리뷰 PASS(재작업 2회, 한도 3회 이내) + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 

@@ -2,6 +2,7 @@ package com.lcs.lxp.course.repository;
 
 import com.lcs.lxp.course.model.entity.Course;
 import com.lcs.lxp.course.model.vo.ContentStatus;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,4 +18,6 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
             @Param("status") ContentStatus status,
             @Param("keyword") String keyword,
             Pageable pageable);
+
+    List<Course> findAllByInstructorIdAndStatusAndDeletedAtIsNull(Long instructorId, ContentStatus status);
 }
