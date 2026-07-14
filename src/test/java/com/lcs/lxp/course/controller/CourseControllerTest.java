@@ -12,6 +12,7 @@ import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.dto.response.LectureResponse;
 import com.lcs.lxp.course.dto.response.MissionResponse;
+import com.lcs.lxp.course.exception.CourseAccessDeniedException;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.service.CourseService;
 import com.lcs.lxp.security.jwt.JwtTokenProvider;
@@ -31,6 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -79,6 +81,20 @@ class CourseControllerTest {
                 "instructor" + instructorId + "@test.com",
                 "",
                 List.of(new SimpleGrantedAuthority("ROLE_INSTRUCTOR")),
+                false);
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+    }
+
+    /**
+     * COURSE-09: 소유권 검증 대상 엔드포인트(수정/공개/비공개/삭제)는 어드민 요청도 처리해야 하므로
+     * {@code ROLE_ADMIN} 권한을 가진 {@link CustomUserPrincipal}을 담은 인증 객체를 제공한다.
+     */
+    private Authentication adminAuthentication(long adminId) {
+        CustomUserPrincipal principal = new CustomUserPrincipal(
+                adminId,
+                "admin" + adminId + "@test.com",
+                "",
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN")),
                 false);
         return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
     }
@@ -253,173 +269,338 @@ class CourseControllerTest {
     }
 
     @Test
-    @WithMockUser
-    @DisplayName("강좌 수정 요청이 성공하면 200을 반환한다")
-    void givenValidRequest_whenUpdateCourse_thenReturns200() throws Exception {
+    @DisplayName("강좌를 작성한 강사 본인이 수정 요청을 하면 200을 반환한다")
+    void givenOwnerInstructor_whenUpdateCourse_thenReturns200() throws Exception {
         UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목", "수정된 설명", null);
 
         mockMvc.perform(patch("/api/courses/1")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
 
-        verify(courseService).updateCourse(1L, "수정된 제목", "수정된 설명", null);
+        verify(courseService).updateCourse(1L, "수정된 제목", "수정된 설명", null, 1L, false);
     }
 
     @Test
-    @WithMockUser
+    @DisplayName("어드민이 강좌 수정 요청을 하면 소유자가 아니어도 200을 반환한다")
+    void givenAdmin_whenUpdateCourse_thenReturns200() throws Exception {
+        UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목", "수정된 설명", null);
+
+        mockMvc.perform(patch("/api/courses/1")
+                        .with(authentication(adminAuthentication(99L)))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(courseService).updateCourse(1L, "수정된 제목", "수정된 설명", null, 99L, true);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 수정 요청을 하면 403을 반환한다")
+    void givenOtherInstructor_whenUpdateCourse_thenReturns403() throws Exception {
+        doThrow(new CourseAccessDeniedException("작성한 강사만 접근할 수 있습니다."))
+                .when(courseService).updateCourse(1L, "수정된 제목", "수정된 설명", null, 2L, false);
+        UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목", "수정된 설명", null);
+
+        mockMvc.perform(patch("/api/courses/1")
+                        .with(authentication(instructorAuthentication(2L)))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("작성한 강사만 접근할 수 있습니다."));
+
+        verify(courseService).updateCourse(1L, "수정된 제목", "수정된 설명", null, 2L, false);
+    }
+
+    @Test
     @DisplayName("강좌 수정 시 서비스에서 예외가 발생하면 400을 반환한다")
     void givenServiceException_whenUpdateCourse_thenReturns400() throws Exception {
         doThrow(new CourseException("공개 상태에서는 강좌를 수정할 수 없습니다."))
-                .when(courseService).updateCourse(anyLong(), anyString(), anyString(), nullable(String.class));
+                .when(courseService).updateCourse(
+                        anyLong(), anyString(), anyString(), nullable(String.class), anyLong(), anyBoolean());
 
         UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목", "수정된 설명", null);
 
         mockMvc.perform(patch("/api/courses/1")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("공개 상태에서는 강좌를 수정할 수 없습니다."));
 
-        verify(courseService).updateCourse(anyLong(), anyString(), anyString(), nullable(String.class));
+        verify(courseService).updateCourse(
+                anyLong(), anyString(), anyString(), nullable(String.class), anyLong(), anyBoolean());
     }
 
     @Test
-    @WithMockUser
-    @DisplayName("강좌 공개 요청이 성공하면 200을 반환한다")
-    void givenValidRequest_whenPublishCourse_thenReturns200() throws Exception {
+    @DisplayName("강좌를 작성한 강사 본인이 공개 요청을 하면 200을 반환한다")
+    void givenOwnerInstructor_whenPublishCourse_thenReturns200() throws Exception {
         mockMvc.perform(post("/api/courses/1/publish")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf()))
                 .andExpect(status().isOk());
 
-        verify(courseService).publishCourse(1L);
+        verify(courseService).publishCourse(1L, 1L, false);
     }
 
     @Test
-    @WithMockUser
+    @DisplayName("어드민이 강좌 공개 요청을 하면 소유자가 아니어도 200을 반환한다")
+    void givenAdmin_whenPublishCourse_thenReturns200() throws Exception {
+        mockMvc.perform(post("/api/courses/1/publish")
+                        .with(authentication(adminAuthentication(99L)))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(courseService).publishCourse(1L, 99L, true);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 공개 요청을 하면 403을 반환한다")
+    void givenOtherInstructor_whenPublishCourse_thenReturns403() throws Exception {
+        doThrow(new CourseAccessDeniedException("작성한 강사만 접근할 수 있습니다."))
+                .when(courseService).publishCourse(1L, 2L, false);
+
+        mockMvc.perform(post("/api/courses/1/publish")
+                        .with(authentication(instructorAuthentication(2L)))
+                        .with(csrf()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("작성한 강사만 접근할 수 있습니다."));
+
+        verify(courseService).publishCourse(1L, 2L, false);
+    }
+
+    @Test
     @DisplayName("강좌 공개 시 서비스에서 예외가 발생하면 400을 반환한다")
     void givenServiceException_whenPublishCourse_thenReturns400() throws Exception {
         doThrow(new CourseException("강의와 미션을 1개 이상 포함해야 공개할 수 있습니다."))
-                .when(courseService).publishCourse(anyLong());
+                .when(courseService).publishCourse(anyLong(), anyLong(), anyBoolean());
 
         mockMvc.perform(post("/api/courses/1/publish")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("강의와 미션을 1개 이상 포함해야 공개할 수 있습니다."));
 
-        verify(courseService).publishCourse(anyLong());
+        verify(courseService).publishCourse(anyLong(), anyLong(), anyBoolean());
     }
 
     @Test
-    @WithMockUser
-    @DisplayName("강좌 비공개 요청이 성공하면 200을 반환한다")
-    void givenValidRequest_whenUnpublishCourse_thenReturns200() throws Exception {
+    @DisplayName("강좌를 작성한 강사 본인이 비공개 요청을 하면 200을 반환한다")
+    void givenOwnerInstructor_whenUnpublishCourse_thenReturns200() throws Exception {
         mockMvc.perform(post("/api/courses/1/unpublish")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf()))
                 .andExpect(status().isOk());
 
-        verify(courseService).unpublishCourse(1L);
+        verify(courseService).unpublishCourse(1L, 1L, false);
     }
 
     @Test
-    @WithMockUser
+    @DisplayName("어드민이 강좌 비공개 요청을 하면 소유자가 아니어도 200을 반환한다")
+    void givenAdmin_whenUnpublishCourse_thenReturns200() throws Exception {
+        mockMvc.perform(post("/api/courses/1/unpublish")
+                        .with(authentication(adminAuthentication(99L)))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(courseService).unpublishCourse(1L, 99L, true);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 비공개 요청을 하면 403을 반환한다")
+    void givenOtherInstructor_whenUnpublishCourse_thenReturns403() throws Exception {
+        doThrow(new CourseAccessDeniedException("작성한 강사만 접근할 수 있습니다."))
+                .when(courseService).unpublishCourse(1L, 2L, false);
+
+        mockMvc.perform(post("/api/courses/1/unpublish")
+                        .with(authentication(instructorAuthentication(2L)))
+                        .with(csrf()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("작성한 강사만 접근할 수 있습니다."));
+
+        verify(courseService).unpublishCourse(1L, 2L, false);
+    }
+
+    @Test
     @DisplayName("강좌 비공개 시 서비스에서 예외가 발생하면 400을 반환한다")
     void givenServiceException_whenUnpublishCourse_thenReturns400() throws Exception {
         doThrow(new CourseException("접근 권한이 없습니다."))
-                .when(courseService).unpublishCourse(anyLong());
+                .when(courseService).unpublishCourse(anyLong(), anyLong(), anyBoolean());
 
         mockMvc.perform(post("/api/courses/1/unpublish")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
 
-        verify(courseService).unpublishCourse(anyLong());
+        verify(courseService).unpublishCourse(anyLong(), anyLong(), anyBoolean());
     }
 
     // --- deleteCourse ---
 
     @Test
-    @WithMockUser
-    @DisplayName("강좌 삭제 요청이 성공하면 200을 반환한다")
-    void givenValidRequest_whenDeleteCourse_thenReturns200() throws Exception {
+    @DisplayName("강좌를 작성한 강사 본인이 삭제 요청을 하면 200을 반환한다")
+    void givenOwnerInstructor_whenDeleteCourse_thenReturns200() throws Exception {
         mockMvc.perform(delete("/api/courses/1")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf()))
                 .andExpect(status().isOk());
 
-        verify(courseService).deleteCourse(1L);
+        verify(courseService).deleteCourse(1L, 1L, false);
     }
 
     @Test
-    @WithMockUser
+    @DisplayName("어드민이 강좌 삭제 요청을 하면 소유자가 아니어도 200을 반환한다")
+    void givenAdmin_whenDeleteCourse_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1")
+                        .with(authentication(adminAuthentication(99L)))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteCourse(1L, 99L, true);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 삭제 요청을 하면 403을 반환한다")
+    void givenOtherInstructor_whenDeleteCourse_thenReturns403() throws Exception {
+        doThrow(new CourseAccessDeniedException("작성한 강사만 접근할 수 있습니다."))
+                .when(courseService).deleteCourse(1L, 2L, false);
+
+        mockMvc.perform(delete("/api/courses/1")
+                        .with(authentication(instructorAuthentication(2L)))
+                        .with(csrf()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("작성한 강사만 접근할 수 있습니다."));
+
+        verify(courseService).deleteCourse(1L, 2L, false);
+    }
+
+    @Test
     @DisplayName("강좌 삭제 시 서비스에서 예외가 발생하면 400을 반환한다")
     void givenServiceException_whenDeleteCourse_thenReturns400() throws Exception {
         doThrow(new CourseException("삭제된 강좌는 수정할 수 없습니다."))
-                .when(courseService).deleteCourse(anyLong());
+                .when(courseService).deleteCourse(anyLong(), anyLong(), anyBoolean());
 
         mockMvc.perform(delete("/api/courses/1")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("삭제된 강좌는 수정할 수 없습니다."));
 
-        verify(courseService).deleteCourse(anyLong());
+        verify(courseService).deleteCourse(anyLong(), anyLong(), anyBoolean());
     }
 
     // --- deleteLecture ---
 
     @Test
-    @WithMockUser
-    @DisplayName("강의 삭제 요청이 성공하면 200을 반환한다")
-    void givenValidRequest_whenDeleteLecture_thenReturns200() throws Exception {
+    @DisplayName("강좌를 작성한 강사 본인이 강의 삭제 요청을 하면 200을 반환한다")
+    void givenOwnerInstructor_whenDeleteLecture_thenReturns200() throws Exception {
         mockMvc.perform(delete("/api/courses/1/lectures/10")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf()))
                 .andExpect(status().isOk());
 
-        verify(courseService).deleteLecture(1L, 10L);
+        verify(courseService).deleteLecture(1L, 10L, 1L, false);
     }
 
     @Test
-    @WithMockUser
+    @DisplayName("어드민이 강의 삭제 요청을 하면 소유자가 아니어도 200을 반환한다")
+    void givenAdmin_whenDeleteLecture_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1/lectures/10")
+                        .with(authentication(adminAuthentication(99L)))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteLecture(1L, 10L, 99L, true);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 강의 삭제 요청을 하면 403을 반환한다")
+    void givenOtherInstructor_whenDeleteLecture_thenReturns403() throws Exception {
+        doThrow(new CourseAccessDeniedException("작성한 강사만 접근할 수 있습니다."))
+                .when(courseService).deleteLecture(1L, 10L, 2L, false);
+
+        mockMvc.perform(delete("/api/courses/1/lectures/10")
+                        .with(authentication(instructorAuthentication(2L)))
+                        .with(csrf()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("작성한 강사만 접근할 수 있습니다."));
+
+        verify(courseService).deleteLecture(1L, 10L, 2L, false);
+    }
+
+    @Test
     @DisplayName("강의 삭제 시 서비스에서 예외가 발생하면 400을 반환한다")
     void givenServiceException_whenDeleteLecture_thenReturns400() throws Exception {
         doThrow(new CourseException("강의를 찾을 수 없습니다."))
-                .when(courseService).deleteLecture(anyLong(), anyLong());
+                .when(courseService).deleteLecture(anyLong(), anyLong(), anyLong(), anyBoolean());
 
         mockMvc.perform(delete("/api/courses/1/lectures/10")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("강의를 찾을 수 없습니다."));
 
-        verify(courseService).deleteLecture(anyLong(), anyLong());
+        verify(courseService).deleteLecture(anyLong(), anyLong(), anyLong(), anyBoolean());
     }
 
     // --- deleteMission ---
 
     @Test
-    @WithMockUser
-    @DisplayName("미션 삭제 요청이 성공하면 200을 반환한다")
-    void givenValidRequest_whenDeleteMission_thenReturns200() throws Exception {
+    @DisplayName("강좌를 작성한 강사 본인이 미션 삭제 요청을 하면 200을 반환한다")
+    void givenOwnerInstructor_whenDeleteMission_thenReturns200() throws Exception {
         mockMvc.perform(delete("/api/courses/1/missions/20")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf()))
                 .andExpect(status().isOk());
 
-        verify(courseService).deleteMission(1L, 20L);
+        verify(courseService).deleteMission(1L, 20L, 1L, false);
     }
 
     @Test
-    @WithMockUser
+    @DisplayName("어드민이 미션 삭제 요청을 하면 소유자가 아니어도 200을 반환한다")
+    void givenAdmin_whenDeleteMission_thenReturns200() throws Exception {
+        mockMvc.perform(delete("/api/courses/1/missions/20")
+                        .with(authentication(adminAuthentication(99L)))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(courseService).deleteMission(1L, 20L, 99L, true);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 미션 삭제 요청을 하면 403을 반환한다")
+    void givenOtherInstructor_whenDeleteMission_thenReturns403() throws Exception {
+        doThrow(new CourseAccessDeniedException("작성한 강사만 접근할 수 있습니다."))
+                .when(courseService).deleteMission(1L, 20L, 2L, false);
+
+        mockMvc.perform(delete("/api/courses/1/missions/20")
+                        .with(authentication(instructorAuthentication(2L)))
+                        .with(csrf()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("작성한 강사만 접근할 수 있습니다."));
+
+        verify(courseService).deleteMission(1L, 20L, 2L, false);
+    }
+
+    @Test
     @DisplayName("미션 삭제 시 서비스에서 예외가 발생하면 400을 반환한다")
     void givenServiceException_whenDeleteMission_thenReturns400() throws Exception {
         doThrow(new CourseException("미션을 찾을 수 없습니다."))
-                .when(courseService).deleteMission(anyLong(), anyLong());
+                .when(courseService).deleteMission(anyLong(), anyLong(), anyLong(), anyBoolean());
 
         mockMvc.perform(delete("/api/courses/1/missions/20")
+                        .with(authentication(instructorAuthentication(1L)))
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("미션을 찾을 수 없습니다."));
 
-        verify(courseService).deleteMission(anyLong(), anyLong());
+        verify(courseService).deleteMission(anyLong(), anyLong(), anyLong(), anyBoolean());
     }
 
     // --- createCourse validation ---

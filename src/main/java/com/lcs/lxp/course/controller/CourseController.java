@@ -16,6 +16,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -29,6 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/courses")
 public class CourseController {
+
+    private static final String ADMIN_AUTHORITY = "ROLE_ADMIN";
 
     private final CourseService courseService;
 
@@ -67,26 +70,33 @@ public class CourseController {
     @PatchMapping("/{courseId}")
     public ResponseEntity<Void> updateCourse(
             @PathVariable Long courseId,
-            @RequestBody @Valid UpdateCourseRequest request) {
-        courseService.updateCourse(courseId, request.title(), request.description(), request.thumbnailUrl());
+            @RequestBody @Valid UpdateCourseRequest request,
+            Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        courseService.updateCourse(
+                courseId, request.title(), request.description(), request.thumbnailUrl(),
+                principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{courseId}/publish")
-    public ResponseEntity<Void> publishCourse(@PathVariable Long courseId) {
-        courseService.publishCourse(courseId);
+    public ResponseEntity<Void> publishCourse(@PathVariable Long courseId, Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        courseService.publishCourse(courseId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{courseId}/unpublish")
-    public ResponseEntity<Void> unpublishCourse(@PathVariable Long courseId) {
-        courseService.unpublishCourse(courseId);
+    public ResponseEntity<Void> unpublishCourse(@PathVariable Long courseId, Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        courseService.unpublishCourse(courseId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{courseId}")
-    public ResponseEntity<Void> deleteCourse(@PathVariable Long courseId) {
-        courseService.deleteCourse(courseId);
+    public ResponseEntity<Void> deleteCourse(@PathVariable Long courseId, Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        courseService.deleteCourse(courseId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
@@ -101,24 +111,30 @@ public class CourseController {
     @PostMapping("/{courseId}/lectures/{lectureId}/publish")
     public ResponseEntity<Void> publishLecture(
             @PathVariable Long courseId,
-            @PathVariable Long lectureId) {
-        courseService.publishLecture(courseId, lectureId);
+            @PathVariable Long lectureId,
+            Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        courseService.publishLecture(courseId, lectureId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{courseId}/lectures/{lectureId}/unpublish")
     public ResponseEntity<Void> unpublishLecture(
             @PathVariable Long courseId,
-            @PathVariable Long lectureId) {
-        courseService.unpublishLecture(courseId, lectureId);
+            @PathVariable Long lectureId,
+            Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        courseService.unpublishLecture(courseId, lectureId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{courseId}/lectures/{lectureId}")
     public ResponseEntity<Void> deleteLecture(
             @PathVariable Long courseId,
-            @PathVariable Long lectureId) {
-        courseService.deleteLecture(courseId, lectureId);
+            @PathVariable Long lectureId,
+            Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        courseService.deleteLecture(courseId, lectureId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
@@ -133,24 +149,30 @@ public class CourseController {
     @PostMapping("/{courseId}/missions/{missionId}/publish")
     public ResponseEntity<Void> publishMission(
             @PathVariable Long courseId,
-            @PathVariable Long missionId) {
-        courseService.publishMission(courseId, missionId);
+            @PathVariable Long missionId,
+            Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        courseService.publishMission(courseId, missionId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{courseId}/missions/{missionId}/unpublish")
     public ResponseEntity<Void> unpublishMission(
             @PathVariable Long courseId,
-            @PathVariable Long missionId) {
-        courseService.unpublishMission(courseId, missionId);
+            @PathVariable Long missionId,
+            Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        courseService.unpublishMission(courseId, missionId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{courseId}/missions/{missionId}")
     public ResponseEntity<Void> deleteMission(
             @PathVariable Long courseId,
-            @PathVariable Long missionId) {
-        courseService.deleteMission(courseId, missionId);
+            @PathVariable Long missionId,
+            Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        courseService.deleteMission(courseId, missionId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
@@ -166,5 +188,14 @@ public class CourseController {
                 .toList();
         courseService.reorderItems(courseId, itemTypes, itemIds);
         return ResponseEntity.ok().build();
+    }
+
+    private boolean isAdmin(CustomUserPrincipal principal) {
+        for (GrantedAuthority authority : principal.getAuthorities()) {
+            if (ADMIN_AUTHORITY.equals(authority.getAuthority())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

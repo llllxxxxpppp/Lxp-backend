@@ -3,6 +3,7 @@ package com.lcs.lxp.course.service;
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
 import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
+import com.lcs.lxp.course.exception.CourseAccessDeniedException;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.entity.Course;
 import com.lcs.lxp.course.model.vo.ContentStatus;
@@ -60,20 +61,25 @@ public class CourseService {
     }
 
     @RejectSuspendedInstructor
-    public void updateCourse(Long courseId, String newTitle, String description, String thumbnailUrl) {
+    public void updateCourse(
+            Long courseId, String newTitle, String description, String thumbnailUrl,
+            Long requesterId, boolean isAdmin) {
         Course course = getCourse(courseId);
+        checkOwnership(course, requesterId, isAdmin);
         course.update(new Title(newTitle), description, thumbnailUrl);
     }
 
     @RejectSuspendedInstructor
-    public void publishCourse(Long courseId) {
+    public void publishCourse(Long courseId, Long requesterId, boolean isAdmin) {
         Course course = getCourse(courseId);
+        checkOwnership(course, requesterId, isAdmin);
         course.publish();
     }
 
     @RejectSuspendedInstructor
-    public void unpublishCourse(Long courseId) {
+    public void unpublishCourse(Long courseId, Long requesterId, boolean isAdmin) {
         Course course = getCourse(courseId);
+        checkOwnership(course, requesterId, isAdmin);
         course.unpublish();
     }
 
@@ -83,13 +89,17 @@ public class CourseService {
     }
 
     @RejectSuspendedInstructor
-    public void publishLecture(Long courseId, Long lectureId) {
-        getCourse(courseId).publishLecture(new LectureId(lectureId));
+    public void publishLecture(Long courseId, Long lectureId, Long requesterId, boolean isAdmin) {
+        Course course = getCourse(courseId);
+        checkOwnership(course, requesterId, isAdmin);
+        course.publishLecture(new LectureId(lectureId));
     }
 
     @RejectSuspendedInstructor
-    public void unpublishLecture(Long courseId, Long lectureId) {
-        getCourse(courseId).unpublishLecture(new LectureId(lectureId));
+    public void unpublishLecture(Long courseId, Long lectureId, Long requesterId, boolean isAdmin) {
+        Course course = getCourse(courseId);
+        checkOwnership(course, requesterId, isAdmin);
+        course.unpublishLecture(new LectureId(lectureId));
     }
 
     @RejectSuspendedInstructor
@@ -98,25 +108,35 @@ public class CourseService {
     }
 
     @RejectSuspendedInstructor
-    public void publishMission(Long courseId, Long missionId) {
-        getCourse(courseId).publishMission(new MissionId(missionId));
+    public void publishMission(Long courseId, Long missionId, Long requesterId, boolean isAdmin) {
+        Course course = getCourse(courseId);
+        checkOwnership(course, requesterId, isAdmin);
+        course.publishMission(new MissionId(missionId));
     }
 
     @RejectSuspendedInstructor
-    public void unpublishMission(Long courseId, Long missionId) {
-        getCourse(courseId).unpublishMission(new MissionId(missionId));
+    public void unpublishMission(Long courseId, Long missionId, Long requesterId, boolean isAdmin) {
+        Course course = getCourse(courseId);
+        checkOwnership(course, requesterId, isAdmin);
+        course.unpublishMission(new MissionId(missionId));
     }
 
-    public void deleteCourse(Long courseId) {
-        getCourse(courseId).delete();
+    public void deleteCourse(Long courseId, Long requesterId, boolean isAdmin) {
+        Course course = getCourse(courseId);
+        checkOwnership(course, requesterId, isAdmin);
+        course.delete();
     }
 
-    public void deleteLecture(Long courseId, Long lectureId) {
-        getCourse(courseId).deleteLecture(new LectureId(lectureId));
+    public void deleteLecture(Long courseId, Long lectureId, Long requesterId, boolean isAdmin) {
+        Course course = getCourse(courseId);
+        checkOwnership(course, requesterId, isAdmin);
+        course.deleteLecture(new LectureId(lectureId));
     }
 
-    public void deleteMission(Long courseId, Long missionId) {
-        getCourse(courseId).deleteMission(new MissionId(missionId));
+    public void deleteMission(Long courseId, Long missionId, Long requesterId, boolean isAdmin) {
+        Course course = getCourse(courseId);
+        checkOwnership(course, requesterId, isAdmin);
+        course.deleteMission(new MissionId(missionId));
     }
 
     public void reorderItems(Long courseId, List<String> itemTypes, List<Long> itemIds) {
@@ -135,6 +155,15 @@ public class CourseService {
                 courseRepository.findAllByInstructorIdAndStatusAndDeletedAtIsNull(instructorId, ContentStatus.PUBLIC);
         for (Course course : publicCourses) {
             course.unpublish();
+        }
+    }
+
+    private void checkOwnership(Course course, Long requesterId, boolean isAdmin) {
+        if (isAdmin) {
+            return;
+        }
+        if (!course.getInstructorId().value().equals(requesterId)) {
+            throw new CourseAccessDeniedException("작성한 강사만 접근할 수 있습니다.");
         }
     }
 

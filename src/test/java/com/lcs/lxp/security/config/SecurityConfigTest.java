@@ -63,6 +63,31 @@ class SecurityConfigTest {
         return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
     }
 
+    /**
+     * COURSE-09: 소유권 검증 대상 엔드포인트(수정/공개/비공개/삭제)는 컨트롤러 내부에서
+     * {@code CustomUserPrincipal}을 캐스팅하여 요청자 ID/어드민 여부를 추출하므로,
+     * 어드민·일반 회원 시나리오도 동일하게 {@code CustomUserPrincipal}을 담은 인증 객체로 대체한다.
+     */
+    private Authentication adminAuthentication(long adminId) {
+        CustomUserPrincipal principal = new CustomUserPrincipal(
+                adminId,
+                "admin" + adminId + "@test.com",
+                "",
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN")),
+                false);
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+    }
+
+    private Authentication memberAuthentication(long memberId) {
+        CustomUserPrincipal principal = new CustomUserPrincipal(
+                memberId,
+                "member" + memberId + "@test.com",
+                "",
+                List.of(new SimpleGrantedAuthority("ROLE_MEMBER")),
+                false);
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+    }
+
     @Test
     @DisplayName("강사가 강좌 생성을 요청하면 201 Created를 반환한다")
     void givenInstructorRole_whenCreateCourse_thenReturns201() throws Exception {
@@ -121,13 +146,13 @@ class SecurityConfigTest {
     // --- POST /api/courses/{courseId}/publish (publishCourse) ---
 
     @Test
-    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 강좌 공개를 요청하면 200 OK를 반환한다")
     void givenInstructorRole_whenPublishCourse_thenReturns200() throws Exception {
-        mockMvc.perform(post("/api/courses/1/publish"))
+        mockMvc.perform(post("/api/courses/1/publish")
+                        .with(authentication(instructorAuthentication(1L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).publishCourse(1L);
+        verify(courseService).publishCourse(1L, 1L, false);
     }
 
     @Test
@@ -143,23 +168,23 @@ class SecurityConfigTest {
     // --- POST /api/courses/{courseId}/unpublish (unpublishCourse) ---
 
     @Test
-    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 강좌 비공개를 요청하면 200 OK를 반환한다")
     void givenInstructorRole_whenUnpublishCourse_thenReturns200() throws Exception {
-        mockMvc.perform(post("/api/courses/1/unpublish"))
+        mockMvc.perform(post("/api/courses/1/unpublish")
+                        .with(authentication(instructorAuthentication(1L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).unpublishCourse(1L);
+        verify(courseService).unpublishCourse(1L, 1L, false);
     }
 
     @Test
-    @WithMockUser(authorities = "ROLE_ADMIN")
     @DisplayName("어드민이 강좌 비공개를 요청하면 200 OK를 반환한다")
     void givenAdminRole_whenUnpublishCourse_thenReturns200() throws Exception {
-        mockMvc.perform(post("/api/courses/1/unpublish"))
+        mockMvc.perform(post("/api/courses/1/unpublish")
+                        .with(authentication(adminAuthentication(99L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).unpublishCourse(1L);
+        verify(courseService).unpublishCourse(1L, 99L, true);
     }
 
     @Test
@@ -205,13 +230,13 @@ class SecurityConfigTest {
     // --- POST /api/courses/{courseId}/lectures/{lectureId}/publish (publishLecture) ---
 
     @Test
-    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 강의 공개를 요청하면 200 OK를 반환한다")
     void givenInstructorRole_whenPublishLecture_thenReturns200() throws Exception {
-        mockMvc.perform(post("/api/courses/1/lectures/10/publish"))
+        mockMvc.perform(post("/api/courses/1/lectures/10/publish")
+                        .with(authentication(instructorAuthentication(1L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).publishLecture(1L, 10L);
+        verify(courseService).publishLecture(1L, 10L, 1L, false);
     }
 
     @Test
@@ -227,23 +252,23 @@ class SecurityConfigTest {
     // --- POST /api/courses/{courseId}/lectures/{lectureId}/unpublish (unpublishLecture) ---
 
     @Test
-    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 강의 비공개를 요청하면 200 OK를 반환한다")
     void givenInstructorRole_whenUnpublishLecture_thenReturns200() throws Exception {
-        mockMvc.perform(post("/api/courses/1/lectures/10/unpublish"))
+        mockMvc.perform(post("/api/courses/1/lectures/10/unpublish")
+                        .with(authentication(instructorAuthentication(1L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).unpublishLecture(1L, 10L);
+        verify(courseService).unpublishLecture(1L, 10L, 1L, false);
     }
 
     @Test
-    @WithMockUser(authorities = "ROLE_ADMIN")
     @DisplayName("어드민이 강의 비공개를 요청하면 200 OK를 반환한다")
     void givenAdminRole_whenUnpublishLecture_thenReturns200() throws Exception {
-        mockMvc.perform(post("/api/courses/1/lectures/10/unpublish"))
+        mockMvc.perform(post("/api/courses/1/lectures/10/unpublish")
+                        .with(authentication(adminAuthentication(99L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).unpublishLecture(1L, 10L);
+        verify(courseService).unpublishLecture(1L, 10L, 99L, true);
     }
 
     @Test
@@ -289,13 +314,13 @@ class SecurityConfigTest {
     // --- POST /api/courses/{courseId}/missions/{missionId}/publish (publishMission) ---
 
     @Test
-    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 미션 공개를 요청하면 200 OK를 반환한다")
     void givenInstructorRole_whenPublishMission_thenReturns200() throws Exception {
-        mockMvc.perform(post("/api/courses/1/missions/20/publish"))
+        mockMvc.perform(post("/api/courses/1/missions/20/publish")
+                        .with(authentication(instructorAuthentication(1L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).publishMission(1L, 20L);
+        verify(courseService).publishMission(1L, 20L, 1L, false);
     }
 
     @Test
@@ -311,23 +336,23 @@ class SecurityConfigTest {
     // --- POST /api/courses/{courseId}/missions/{missionId}/unpublish (unpublishMission) ---
 
     @Test
-    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 미션 비공개를 요청하면 200 OK를 반환한다")
     void givenInstructorRole_whenUnpublishMission_thenReturns200() throws Exception {
-        mockMvc.perform(post("/api/courses/1/missions/20/unpublish"))
+        mockMvc.perform(post("/api/courses/1/missions/20/unpublish")
+                        .with(authentication(instructorAuthentication(1L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).unpublishMission(1L, 20L);
+        verify(courseService).unpublishMission(1L, 20L, 1L, false);
     }
 
     @Test
-    @WithMockUser(authorities = "ROLE_ADMIN")
     @DisplayName("어드민이 미션 비공개를 요청하면 200 OK를 반환한다")
     void givenAdminRole_whenUnpublishMission_thenReturns200() throws Exception {
-        mockMvc.perform(post("/api/courses/1/missions/20/unpublish"))
+        mockMvc.perform(post("/api/courses/1/missions/20/unpublish")
+                        .with(authentication(adminAuthentication(99L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).unpublishMission(1L, 20L);
+        verify(courseService).unpublishMission(1L, 20L, 99L, true);
     }
 
     @Test
@@ -343,23 +368,23 @@ class SecurityConfigTest {
     // --- DELETE /api/courses/{courseId} (deleteCourse) ---
 
     @Test
-    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 강좌 삭제를 요청하면 200 OK를 반환한다")
     void givenInstructorRole_whenDeleteCourse_thenReturns200() throws Exception {
-        mockMvc.perform(delete("/api/courses/1"))
+        mockMvc.perform(delete("/api/courses/1")
+                        .with(authentication(instructorAuthentication(1L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).deleteCourse(1L);
+        verify(courseService).deleteCourse(1L, 1L, false);
     }
 
     @Test
-    @WithMockUser(authorities = "ROLE_ADMIN")
     @DisplayName("어드민이 강좌 삭제를 요청하면 200 OK를 반환한다")
     void givenAdminRole_whenDeleteCourse_thenReturns200() throws Exception {
-        mockMvc.perform(delete("/api/courses/1"))
+        mockMvc.perform(delete("/api/courses/1")
+                        .with(authentication(adminAuthentication(99L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).deleteCourse(1L);
+        verify(courseService).deleteCourse(1L, 99L, true);
     }
 
     @Test
@@ -384,23 +409,23 @@ class SecurityConfigTest {
     // --- DELETE /api/courses/{courseId}/lectures/{lectureId} (deleteLecture) ---
 
     @Test
-    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 강의 삭제를 요청하면 200 OK를 반환한다")
     void givenInstructorRole_whenDeleteLecture_thenReturns200() throws Exception {
-        mockMvc.perform(delete("/api/courses/1/lectures/10"))
+        mockMvc.perform(delete("/api/courses/1/lectures/10")
+                        .with(authentication(instructorAuthentication(1L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).deleteLecture(1L, 10L);
+        verify(courseService).deleteLecture(1L, 10L, 1L, false);
     }
 
     @Test
-    @WithMockUser(authorities = "ROLE_ADMIN")
     @DisplayName("어드민이 강의 삭제를 요청하면 200 OK를 반환한다")
     void givenAdminRole_whenDeleteLecture_thenReturns200() throws Exception {
-        mockMvc.perform(delete("/api/courses/1/lectures/10"))
+        mockMvc.perform(delete("/api/courses/1/lectures/10")
+                        .with(authentication(adminAuthentication(99L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).deleteLecture(1L, 10L);
+        verify(courseService).deleteLecture(1L, 10L, 99L, true);
     }
 
     @Test
@@ -416,23 +441,23 @@ class SecurityConfigTest {
     // --- DELETE /api/courses/{courseId}/missions/{missionId} (deleteMission) ---
 
     @Test
-    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 미션 삭제를 요청하면 200 OK를 반환한다")
     void givenInstructorRole_whenDeleteMission_thenReturns200() throws Exception {
-        mockMvc.perform(delete("/api/courses/1/missions/20"))
+        mockMvc.perform(delete("/api/courses/1/missions/20")
+                        .with(authentication(instructorAuthentication(1L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).deleteMission(1L, 20L);
+        verify(courseService).deleteMission(1L, 20L, 1L, false);
     }
 
     @Test
-    @WithMockUser(authorities = "ROLE_ADMIN")
     @DisplayName("어드민이 미션 삭제를 요청하면 200 OK를 반환한다")
     void givenAdminRole_whenDeleteMission_thenReturns200() throws Exception {
-        mockMvc.perform(delete("/api/courses/1/missions/20"))
+        mockMvc.perform(delete("/api/courses/1/missions/20")
+                        .with(authentication(adminAuthentication(99L))))
                 .andExpect(status().isOk());
 
-        verify(courseService).deleteMission(1L, 20L);
+        verify(courseService).deleteMission(1L, 20L, 99L, true);
     }
 
     @Test
@@ -478,17 +503,17 @@ class SecurityConfigTest {
     }
 
     @Test
-    @WithMockUser(authorities = "ROLE_MEMBER")
     @DisplayName("강좌 수정은 역할 제한이 없으므로 일반 회원도 200 OK를 반환한다")
     void givenMemberRole_whenUpdateCourse_thenReturns200() throws Exception {
         UpdateCourseRequest request = new UpdateCourseRequest("수정된 제목", "수정된 설명", null);
 
         mockMvc.perform(patch("/api/courses/1")
+                        .with(authentication(memberAuthentication(5L)))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
 
-        verify(courseService).updateCourse(1L, "수정된 제목", "수정된 설명", null);
+        verify(courseService).updateCourse(1L, "수정된 제목", "수정된 설명", null, 5L, false);
     }
 
     // --- PATCH /api/courses/{courseId}/reorder (reorderItems) ---

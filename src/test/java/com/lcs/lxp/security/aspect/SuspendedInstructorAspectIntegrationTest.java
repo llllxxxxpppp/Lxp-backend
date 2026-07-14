@@ -294,9 +294,14 @@ class SuspendedInstructorAspectIntegrationTest {
     // --- 범위 밖 회귀 테스트: 삭제/순서변경은 정지된 강사도 차단되지 않는다 ---
 
     @Test
-    @DisplayName("정지된 강사가 강좌 삭제를 요청해도 차단되지 않고 200 OK를 반환한다 (범위 밖)")
+    @DisplayName("정지된 강사가 본인 소유 강좌 삭제를 요청해도 차단되지 않고 200 OK를 반환한다 (범위 밖)")
     void givenSuspendedInstructor_whenDeleteCourse_thenReturns200WithoutSuspensionCheck() throws Exception {
-        mockMvc.perform(delete("/api/courses/" + seededCourseId)
+        // COURSE-09 소유권 검증과 충돌하지 않도록, 정지된 강사 본인이 소유한 강좌를 별도로 시드한다.
+        Course ownCourse =
+                Course.create(new InstructorId(SUSPENDED_INSTRUCTOR_ID), new Title("정지 강사 소유 강좌"), "설명", null);
+        Long ownCourseId = courseRepository.save(ownCourse).getId().value();
+
+        mockMvc.perform(delete("/api/courses/" + ownCourseId)
                         .with(authentication(suspendedInstructorAuthentication())))
                 .andExpect(status().isOk());
 

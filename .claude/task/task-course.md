@@ -279,7 +279,17 @@
 
 **대상 파일**: `controller/CourseController.java`, `service/CourseService.java` (또는 신규 인가 로직 위치), 영향받는 기존 테스트: `CourseServiceTest.java`, `CourseControllerTest.java`
 
-**진행 기록**: (미착수) — COURSE-02(강좌 수정), COURSE-04(강의/미션 추가·공개·비공개), COURSE-06b(삭제)는 이미 완료 처리되었으나 완료 기준 자체에 소유권 검증이 없었으므로 이번 발견으로 인해 완료 무효화 대상은 아님(범위 확장 신규 작업). 착수 시 위 3개 작업의 기존 테스트가 소유권 검증 추가로 깨지지 않는지 함께 확인 필요.
+**진행 기록**:
+- 착수 전 확인: COURSE-02(강좌 수정), COURSE-04(강의/미션 추가·공개·비공개), COURSE-06b(삭제)는 이미 완료 처리되었으나 완료 기준 자체에 소유권 검증이 없었으므로 이번 발견으로 인해 완료 무효화 대상은 아님(범위 확장 신규 작업).
+- 범위 확정: 완료 기준 문구("수정·공개·비공개·삭제")를 근거로 `CourseService`의 `updateCourse`, `publishCourse`, `unpublishCourse`, `publishLecture`, `unpublishLecture`, `publishMission`, `unpublishMission`, `deleteCourse`, `deleteLecture`, `deleteMission` 10개 메서드로 한정. "생성"(`addLecture`/`addMission`)과 `reorderItems`, `createCourse`는 범위 밖으로 명확히 하고 변경하지 않음.
+- 4-1(테스트 작성): `CourseServiceTest`(10개 메서드별 소유자/어드민/타 강사 시나리오 신규), `CourseControllerTest`(수정/공개/비공개/삭제/강의삭제/미션삭제 6개 대표 엔드포인트의 실제 HTTP 403 검증 신규), `SecurityConfigTest`(10개 메서드 호출부를 신규 시그니처에 맞게 보정) 작성. 설계: 10개 메서드 전부에 트레일링 인자 `Long requesterId, boolean isAdmin` 추가, 신규 예외 `CourseAccessDeniedException`(403 매핑) 도입.
+- 4-2(구현): `CourseService.java`(10개 메서드에 인자 추가 + 공통 `checkOwnership()` 헬퍼), `CourseAccessDeniedException.java`(신규), `CourseExceptionHandler.java`(403 매핑 추가), `CourseController.java`(10개 엔드포인트에 `Authentication` 파라미터 추가, `CustomUserPrincipal` 캐스팅으로 requesterId/isAdmin 추출·전달, `createCourse()` 기존 패턴 재사용). `@RejectSuspendedInstructor`는 마커 어노테이션이라 시그니처 변경에 영향 없음을 확인.
+- 4-3(리뷰, 1차): PASS. 10개 메서드 소유권 검증 정확성, 403/400 예외 혼동 없음, `Authentication` 추출 정확성, AOP 영향 없음, `implementation-rules.md` 준수, 범위 밖 메서드(`addLecture`/`addMission`/`reorderItems`/`createCourse`) 무변경, 테스트 기대와 구현 일치, COURSE-02/04/06b 회귀 없음 확인.
+- 4-4(테스트 실행, 1차): **FAIL** — `SuspendedInstructorAspectIntegrationTest.givenSuspendedInstructor_whenDeleteCourse_thenReturns200WithoutSuspensionCheck()`가 다른 강사(`ACTIVE_INSTRUCTOR_ID`) 소유 강좌를 삭제 대상으로 사용해 신규 소유권 검증(`checkOwnership`)과 충돌, 403 발생. 원인=테스트 코드로 판별.
+- 4-1(테스트 재작업 1회차): 해당 테스트에서 정지된 강사(`SUSPENDED_INSTRUCTOR_ID`) 본인 소유 강좌를 별도로 생성해 삭제 대상으로 사용하도록 수정(원래 검증 의도 "삭제 API에는 정지 강사 방어 미적용"은 유지).
+- 4-3(재리뷰): PASS. 원래 의도 보존, 소유권 검증과의 충돌 해소, 수정 범위가 해당 테스트 메서드 내로 국한됨, `verifyNoInteractions(memberRepository)` 유효성 확인.
+- 4-4(재실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 463개 테스트 전체 통과. 커버리지 93%.
+- 완료 근거: 리뷰 PASS(재작업 1회, 한도 3회 이내) + 테스트/PMD 통과 + 사용자 확인(2026-07-15).
 
 ---
 

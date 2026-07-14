@@ -4,6 +4,7 @@ import com.lcs.lxp.course.dto.response.CourseDetailResponse;
 import com.lcs.lxp.course.dto.response.CourseItemResponse;
 import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
+import com.lcs.lxp.course.exception.CourseAccessDeniedException;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.entity.Course;
 import com.lcs.lxp.course.model.entity.Lecture;
@@ -30,6 +31,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,6 +40,14 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CourseServiceTest {
+
+    /**
+     * COURSE-09: 소유권 검증 테스트에서 사용하는 요청자 ID 상수.
+     * privateCourse/publishedCourse는 모두 {@code OWNER_ID}(1L)가 작성한 강좌로 생성된다.
+     */
+    private static final long OWNER_ID = 1L;
+    private static final long OTHER_INSTRUCTOR_ID = 2L;
+    private static final long ADMIN_REQUESTER_ID = 999L;
 
     @Mock
     private CourseRepository courseRepository;
@@ -210,21 +220,46 @@ class CourseServiceTest {
     // --- updateCourse ---
 
     @Test
-    @DisplayName("비공개 강좌의 제목을 수정하면 제목이 변경된다")
-    void givenPrivateCourse_whenUpdateCourse_thenTitleIsUpdated() {
+    @DisplayName("비공개 강좌의 제목을 소유 강사가 수정하면 제목이 변경된다")
+    void givenPrivateCourseOwnedByRequester_whenUpdateCourse_thenTitleIsUpdated() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
-        courseService.updateCourse(1L, "수정된 제목", "수정된 설명", null);
+        courseService.updateCourse(1L, "수정된 제목", "수정된 설명", null, OWNER_ID, false);
 
         assertEquals("수정된 제목", privateCourse.getTitle().getValue());
+        verify(courseRepository).findById(1L);
     }
 
     @Test
-    @DisplayName("공개 강좌의 제목을 수정하면 예외가 발생한다")
+    @DisplayName("어드민이 강좌를 수정하면 소유자가 아니어도 제목이 변경된다")
+    void givenAdminRequester_whenUpdateCourse_thenTitleIsUpdated() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.updateCourse(1L, "수정된 제목", "수정된 설명", null, ADMIN_REQUESTER_ID, true);
+
+        assertEquals("수정된 제목", privateCourse.getTitle().getValue());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 수정을 시도하면 접근 거부 예외가 발생한다")
+    void givenOtherInstructorRequester_whenUpdateCourse_thenThrowsAccessDeniedException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseAccessDeniedException.class,
+                () -> courseService.updateCourse(1L, "수정된 제목", "수정된 설명", null, OTHER_INSTRUCTOR_ID, false));
+
+        assertEquals("강좌 제목", privateCourse.getTitle().getValue());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("공개 강좌의 제목을 소유 강사가 수정하면 예외가 발생한다")
     void givenPublicCourse_whenUpdateCourse_thenThrowsException() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(publishedCourse));
 
-        assertThrows(CourseException.class, () -> courseService.updateCourse(1L, "수정된 제목", "수정된 설명", null));
+        assertThrows(CourseException.class,
+                () -> courseService.updateCourse(1L, "수정된 제목", "수정된 설명", null, OWNER_ID, false));
     }
 
     @Test
@@ -232,19 +267,44 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenUpdateCourse_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.updateCourse(999L, "수정된 제목", "수정된 설명", null));
+        assertThrows(CourseException.class,
+                () -> courseService.updateCourse(999L, "수정된 제목", "수정된 설명", null, OWNER_ID, false));
     }
 
     // --- publishCourse ---
 
     @Test
-    @DisplayName("강좌를 공개하면 상태가 PUBLIC이 된다")
-    void givenPrivateCourse_whenPublishCourse_thenStatusIsPublic() {
+    @DisplayName("소유 강사가 강좌를 공개하면 상태가 PUBLIC이 된다")
+    void givenPrivateCourseOwnedByRequester_whenPublishCourse_thenStatusIsPublic() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
-        courseService.publishCourse(1L);
+        courseService.publishCourse(1L, OWNER_ID, false);
 
         assertEquals(ContentStatus.PUBLIC, privateCourse.getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("어드민이 강좌를 공개하면 소유자가 아니어도 상태가 PUBLIC이 된다")
+    void givenAdminRequester_whenPublishCourse_thenStatusIsPublic() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.publishCourse(1L, ADMIN_REQUESTER_ID, true);
+
+        assertEquals(ContentStatus.PUBLIC, privateCourse.getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 공개를 시도하면 접근 거부 예외가 발생한다")
+    void givenOtherInstructorRequester_whenPublishCourse_thenThrowsAccessDeniedException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseAccessDeniedException.class,
+                () -> courseService.publishCourse(1L, OTHER_INSTRUCTOR_ID, false));
+
+        assertEquals(ContentStatus.PRIVATE, privateCourse.getStatus());
+        verify(courseRepository).findById(1L);
     }
 
     @Test
@@ -252,19 +312,43 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenPublishCourse_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.publishCourse(999L));
+        assertThrows(CourseException.class, () -> courseService.publishCourse(999L, OWNER_ID, false));
     }
 
     // --- unpublishCourse ---
 
     @Test
-    @DisplayName("강좌를 비공개하면 상태가 PRIVATE이 된다")
-    void givenPublishedCourse_whenUnpublishCourse_thenStatusIsPrivate() {
+    @DisplayName("소유 강사가 강좌를 비공개하면 상태가 PRIVATE이 된다")
+    void givenPublishedCourseOwnedByRequester_whenUnpublishCourse_thenStatusIsPrivate() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(publishedCourse));
 
-        courseService.unpublishCourse(1L);
+        courseService.unpublishCourse(1L, OWNER_ID, false);
 
         assertEquals(ContentStatus.PRIVATE, publishedCourse.getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("어드민이 강좌를 비공개하면 소유자가 아니어도 상태가 PRIVATE이 된다")
+    void givenAdminRequester_whenUnpublishCourse_thenStatusIsPrivate() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(publishedCourse));
+
+        courseService.unpublishCourse(1L, ADMIN_REQUESTER_ID, true);
+
+        assertEquals(ContentStatus.PRIVATE, publishedCourse.getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 비공개를 시도하면 접근 거부 예외가 발생한다")
+    void givenOtherInstructorRequester_whenUnpublishCourse_thenThrowsAccessDeniedException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(publishedCourse));
+
+        assertThrows(CourseAccessDeniedException.class,
+                () -> courseService.unpublishCourse(1L, OTHER_INSTRUCTOR_ID, false));
+
+        assertEquals(ContentStatus.PUBLIC, publishedCourse.getStatus());
+        verify(courseRepository).findById(1L);
     }
 
     @Test
@@ -272,7 +356,7 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenUnpublishCourse_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.unpublishCourse(999L));
+        assertThrows(CourseException.class, () -> courseService.unpublishCourse(999L, OWNER_ID, false));
     }
 
     // --- addLecture ---
@@ -315,14 +399,40 @@ class CourseServiceTest {
     // --- publishLecture ---
 
     @Test
-    @DisplayName("강의를 공개하면 상태가 PUBLIC이 된다")
-    void givenPrivateLecture_whenPublishLecture_thenStatusIsPublic() {
+    @DisplayName("소유 강사가 강의를 공개하면 상태가 PUBLIC이 된다")
+    void givenPrivateLectureOwnedByRequester_whenPublishLecture_thenStatusIsPublic() {
         privateCourse.unpublishLecture(new LectureId(10L));
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
-        courseService.publishLecture(1L, 10L);
+        courseService.publishLecture(1L, 10L, OWNER_ID, false);
 
         assertEquals(ContentStatus.PUBLIC, privateCourse.getLectures().get(0).getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("어드민이 강의를 공개하면 소유자가 아니어도 상태가 PUBLIC이 된다")
+    void givenAdminRequester_whenPublishLecture_thenStatusIsPublic() {
+        privateCourse.unpublishLecture(new LectureId(10L));
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.publishLecture(1L, 10L, ADMIN_REQUESTER_ID, true);
+
+        assertEquals(ContentStatus.PUBLIC, privateCourse.getLectures().get(0).getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 강의 공개를 시도하면 접근 거부 예외가 발생한다")
+    void givenOtherInstructorRequester_whenPublishLecture_thenThrowsAccessDeniedException() {
+        privateCourse.unpublishLecture(new LectureId(10L));
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseAccessDeniedException.class,
+                () -> courseService.publishLecture(1L, 10L, OTHER_INSTRUCTOR_ID, false));
+
+        assertEquals(ContentStatus.PRIVATE, privateCourse.getLectures().get(0).getStatus());
+        verify(courseRepository).findById(1L);
     }
 
     @Test
@@ -330,20 +440,46 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenPublishLecture_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.publishLecture(999L, 10L));
+        assertThrows(CourseException.class, () -> courseService.publishLecture(999L, 10L, OWNER_ID, false));
     }
 
     // --- unpublishLecture ---
 
     @Test
-    @DisplayName("강의를 비공개하면 상태가 PRIVATE이 된다")
-    void givenPublishedLecture_whenUnpublishLecture_thenStatusIsPrivate() {
+    @DisplayName("소유 강사가 강의를 비공개하면 상태가 PRIVATE이 된다")
+    void givenPublishedLectureOwnedByRequester_whenUnpublishLecture_thenStatusIsPrivate() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
         privateCourse.publishLecture(new LectureId(10L));
 
-        courseService.unpublishLecture(1L, 10L);
+        courseService.unpublishLecture(1L, 10L, OWNER_ID, false);
 
         assertEquals(ContentStatus.PRIVATE, privateCourse.getLectures().get(0).getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("어드민이 강의를 비공개하면 소유자가 아니어도 상태가 PRIVATE이 된다")
+    void givenAdminRequester_whenUnpublishLecture_thenStatusIsPrivate() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        privateCourse.publishLecture(new LectureId(10L));
+
+        courseService.unpublishLecture(1L, 10L, ADMIN_REQUESTER_ID, true);
+
+        assertEquals(ContentStatus.PRIVATE, privateCourse.getLectures().get(0).getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 강의 비공개를 시도하면 접근 거부 예외가 발생한다")
+    void givenOtherInstructorRequester_whenUnpublishLecture_thenThrowsAccessDeniedException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        privateCourse.publishLecture(new LectureId(10L));
+
+        assertThrows(CourseAccessDeniedException.class,
+                () -> courseService.unpublishLecture(1L, 10L, OTHER_INSTRUCTOR_ID, false));
+
+        assertEquals(ContentStatus.PUBLIC, privateCourse.getLectures().get(0).getStatus());
+        verify(courseRepository).findById(1L);
     }
 
     @Test
@@ -351,7 +487,7 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenUnpublishLecture_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.unpublishLecture(999L, 10L));
+        assertThrows(CourseException.class, () -> courseService.unpublishLecture(999L, 10L, OWNER_ID, false));
     }
 
     // --- addMission ---
@@ -377,14 +513,40 @@ class CourseServiceTest {
     // --- publishMission ---
 
     @Test
-    @DisplayName("미션을 공개하면 상태가 PUBLIC이 된다")
-    void givenPrivateMission_whenPublishMission_thenStatusIsPublic() {
+    @DisplayName("소유 강사가 미션을 공개하면 상태가 PUBLIC이 된다")
+    void givenPrivateMissionOwnedByRequester_whenPublishMission_thenStatusIsPublic() {
         privateCourse.unpublishMission(new MissionId(20L));
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
-        courseService.publishMission(1L, 20L);
+        courseService.publishMission(1L, 20L, OWNER_ID, false);
 
         assertEquals(ContentStatus.PUBLIC, privateCourse.getMissions().get(0).getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("어드민이 미션을 공개하면 소유자가 아니어도 상태가 PUBLIC이 된다")
+    void givenAdminRequester_whenPublishMission_thenStatusIsPublic() {
+        privateCourse.unpublishMission(new MissionId(20L));
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.publishMission(1L, 20L, ADMIN_REQUESTER_ID, true);
+
+        assertEquals(ContentStatus.PUBLIC, privateCourse.getMissions().get(0).getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 미션 공개를 시도하면 접근 거부 예외가 발생한다")
+    void givenOtherInstructorRequester_whenPublishMission_thenThrowsAccessDeniedException() {
+        privateCourse.unpublishMission(new MissionId(20L));
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseAccessDeniedException.class,
+                () -> courseService.publishMission(1L, 20L, OTHER_INSTRUCTOR_ID, false));
+
+        assertEquals(ContentStatus.PRIVATE, privateCourse.getMissions().get(0).getStatus());
+        verify(courseRepository).findById(1L);
     }
 
     @Test
@@ -392,20 +554,46 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenPublishMission_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.publishMission(999L, 20L));
+        assertThrows(CourseException.class, () -> courseService.publishMission(999L, 20L, OWNER_ID, false));
     }
 
     // --- unpublishMission ---
 
     @Test
-    @DisplayName("미션을 비공개하면 상태가 PRIVATE이 된다")
-    void givenPublishedMission_whenUnpublishMission_thenStatusIsPrivate() {
+    @DisplayName("소유 강사가 미션을 비공개하면 상태가 PRIVATE이 된다")
+    void givenPublishedMissionOwnedByRequester_whenUnpublishMission_thenStatusIsPrivate() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
         privateCourse.publishMission(new MissionId(20L));
 
-        courseService.unpublishMission(1L, 20L);
+        courseService.unpublishMission(1L, 20L, OWNER_ID, false);
 
         assertEquals(ContentStatus.PRIVATE, privateCourse.getMissions().get(0).getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("어드민이 미션을 비공개하면 소유자가 아니어도 상태가 PRIVATE이 된다")
+    void givenAdminRequester_whenUnpublishMission_thenStatusIsPrivate() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        privateCourse.publishMission(new MissionId(20L));
+
+        courseService.unpublishMission(1L, 20L, ADMIN_REQUESTER_ID, true);
+
+        assertEquals(ContentStatus.PRIVATE, privateCourse.getMissions().get(0).getStatus());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 미션 비공개를 시도하면 접근 거부 예외가 발생한다")
+    void givenOtherInstructorRequester_whenUnpublishMission_thenThrowsAccessDeniedException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+        privateCourse.publishMission(new MissionId(20L));
+
+        assertThrows(CourseAccessDeniedException.class,
+                () -> courseService.unpublishMission(1L, 20L, OTHER_INSTRUCTOR_ID, false));
+
+        assertEquals(ContentStatus.PUBLIC, privateCourse.getMissions().get(0).getStatus());
+        verify(courseRepository).findById(1L);
     }
 
     @Test
@@ -413,19 +601,42 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenUnpublishMission_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.unpublishMission(999L, 20L));
+        assertThrows(CourseException.class, () -> courseService.unpublishMission(999L, 20L, OWNER_ID, false));
     }
 
     // --- deleteCourse ---
 
     @Test
-    @DisplayName("강좌를 삭제하면 삭제 상태가 된다")
-    void givenExistingCourse_whenDeleteCourse_thenCourseIsDeleted() {
+    @DisplayName("소유 강사가 강좌를 삭제하면 삭제 상태가 된다")
+    void givenExistingCourseOwnedByRequester_whenDeleteCourse_thenCourseIsDeleted() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
-        courseService.deleteCourse(1L);
+        courseService.deleteCourse(1L, OWNER_ID, false);
 
         assertTrue(privateCourse.isDeleted());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("어드민이 강좌를 삭제하면 소유자가 아니어도 삭제 상태가 된다")
+    void givenAdminRequester_whenDeleteCourse_thenCourseIsDeleted() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.deleteCourse(1L, ADMIN_REQUESTER_ID, true);
+
+        assertTrue(privateCourse.isDeleted());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 삭제를 시도하면 접근 거부 예외가 발생한다")
+    void givenOtherInstructorRequester_whenDeleteCourse_thenThrowsAccessDeniedException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseAccessDeniedException.class,
+                () -> courseService.deleteCourse(1L, OTHER_INSTRUCTOR_ID, false));
+
+        assertFalse(privateCourse.isDeleted());
         verify(courseRepository).findById(1L);
     }
 
@@ -434,28 +645,52 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenDeleteCourse_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.deleteCourse(999L));
+        assertThrows(CourseException.class, () -> courseService.deleteCourse(999L, OWNER_ID, false));
     }
 
     @Test
     @DisplayName("이미 삭제된 강좌를 다시 삭제하면 예외가 발생한다")
     void givenAlreadyDeletedCourse_whenDeleteCourse_thenThrowsException() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
-        courseService.deleteCourse(1L);
+        courseService.deleteCourse(1L, OWNER_ID, false);
 
-        assertThrows(CourseException.class, () -> courseService.deleteCourse(1L));
+        assertThrows(CourseException.class, () -> courseService.deleteCourse(1L, OWNER_ID, false));
     }
 
     // --- deleteLecture ---
 
     @Test
-    @DisplayName("강의를 삭제하면 삭제 상태가 된다")
-    void givenExistingLecture_whenDeleteLecture_thenLectureIsDeleted() {
+    @DisplayName("소유 강사가 강의를 삭제하면 삭제 상태가 된다")
+    void givenExistingLectureOwnedByRequester_whenDeleteLecture_thenLectureIsDeleted() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
-        courseService.deleteLecture(1L, 10L);
+        courseService.deleteLecture(1L, 10L, OWNER_ID, false);
 
         assertTrue(privateCourse.getLectures().get(0).isDeleted());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("어드민이 강의를 삭제하면 소유자가 아니어도 삭제 상태가 된다")
+    void givenAdminRequester_whenDeleteLecture_thenLectureIsDeleted() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.deleteLecture(1L, 10L, ADMIN_REQUESTER_ID, true);
+
+        assertTrue(privateCourse.getLectures().get(0).isDeleted());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 강의 삭제를 시도하면 접근 거부 예외가 발생한다")
+    void givenOtherInstructorRequester_whenDeleteLecture_thenThrowsAccessDeniedException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseAccessDeniedException.class,
+                () -> courseService.deleteLecture(1L, 10L, OTHER_INSTRUCTOR_ID, false));
+
+        assertFalse(privateCourse.getLectures().get(0).isDeleted());
+        verify(courseRepository).findById(1L);
     }
 
     @Test
@@ -463,28 +698,52 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenDeleteLecture_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.deleteLecture(999L, 10L));
+        assertThrows(CourseException.class, () -> courseService.deleteLecture(999L, 10L, OWNER_ID, false));
     }
 
     @Test
     @DisplayName("이미 삭제된 강의를 다시 삭제하면 예외가 발생한다")
     void givenAlreadyDeletedLecture_whenDeleteLecture_thenThrowsException() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
-        courseService.deleteLecture(1L, 10L);
+        courseService.deleteLecture(1L, 10L, OWNER_ID, false);
 
-        assertThrows(CourseException.class, () -> courseService.deleteLecture(1L, 10L));
+        assertThrows(CourseException.class, () -> courseService.deleteLecture(1L, 10L, OWNER_ID, false));
     }
 
     // --- deleteMission ---
 
     @Test
-    @DisplayName("미션을 삭제하면 삭제 상태가 된다")
-    void givenExistingMission_whenDeleteMission_thenMissionIsDeleted() {
+    @DisplayName("소유 강사가 미션을 삭제하면 삭제 상태가 된다")
+    void givenExistingMissionOwnedByRequester_whenDeleteMission_thenMissionIsDeleted() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
-        courseService.deleteMission(1L, 20L);
+        courseService.deleteMission(1L, 20L, OWNER_ID, false);
 
         assertTrue(privateCourse.getMissions().get(0).isDeleted());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("어드민이 미션을 삭제하면 소유자가 아니어도 삭제 상태가 된다")
+    void givenAdminRequester_whenDeleteMission_thenMissionIsDeleted() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.deleteMission(1L, 20L, ADMIN_REQUESTER_ID, true);
+
+        assertTrue(privateCourse.getMissions().get(0).isDeleted());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("강좌를 작성하지 않은 다른 강사가 미션 삭제를 시도하면 접근 거부 예외가 발생한다")
+    void givenOtherInstructorRequester_whenDeleteMission_thenThrowsAccessDeniedException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseAccessDeniedException.class,
+                () -> courseService.deleteMission(1L, 20L, OTHER_INSTRUCTOR_ID, false));
+
+        assertFalse(privateCourse.getMissions().get(0).isDeleted());
+        verify(courseRepository).findById(1L);
     }
 
     @Test
@@ -492,16 +751,16 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenDeleteMission_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.deleteMission(999L, 20L));
+        assertThrows(CourseException.class, () -> courseService.deleteMission(999L, 20L, OWNER_ID, false));
     }
 
     @Test
     @DisplayName("이미 삭제된 미션을 다시 삭제하면 예외가 발생한다")
     void givenAlreadyDeletedMission_whenDeleteMission_thenThrowsException() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
-        courseService.deleteMission(1L, 20L);
+        courseService.deleteMission(1L, 20L, OWNER_ID, false);
 
-        assertThrows(CourseException.class, () -> courseService.deleteMission(1L, 20L));
+        assertThrows(CourseException.class, () -> courseService.deleteMission(1L, 20L, OWNER_ID, false));
     }
 
     // --- reorderItems ---
