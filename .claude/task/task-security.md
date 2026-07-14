@@ -23,7 +23,12 @@ Security(공통 인프라) 세부 작업 파일이다. 상태의 원본은 `.cla
 
 **대상 파일**: `src/test/java/com/lcs/lxp/security/jwt/JwtTokenProviderTest.java`(신규)
 
-**진행 기록**: (착수 전)
+**진행 기록**:
+- 4-1(테스트 작성): `JwtTokenProviderTest.java` 신규 작성. `resolveToken`(헤더 있음/없음/다른 스킴), `resolveRefreshToken`, `createAccessToken`↔`getAuthentication` 왕복(username/userId/roles), `validateToken` 정상/만료(`ExpiredJwtCustomException`)/형식오류·타키서명(`InvalidJwtCustomException`), `createRefreshToken` 케이스 포함.
+- 4-2(구현): 기존 `JwtTokenProvider.java` 구현이 완료 기준 및 SECURITY.md 서술을 그대로 충족함을 확인. 구현 코드 변경 없음.
+- 4-3(리뷰): PASS. 변경 범위가 테스트 파일 1개뿐임을 확인, 완료 기준 4항목 모두 실질 검증(mock 우회 없음), test-rules.md(BDD 네이밍/`@DisplayName`/verify·assert) 준수 확인.
+- 4-4(테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 전체 커버리지 85%(목표 80% 충족), `JwtTokenProvider` 커버리지 98%.
+- 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 
