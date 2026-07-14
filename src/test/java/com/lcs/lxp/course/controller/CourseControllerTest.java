@@ -7,6 +7,7 @@ import com.lcs.lxp.course.dto.request.CreateCourseRequest;
 import com.lcs.lxp.course.dto.request.ReorderRequest;
 import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
+import com.lcs.lxp.course.dto.response.CourseItemResponse;
 import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.dto.response.LectureResponse;
@@ -150,10 +151,13 @@ class CourseControllerTest {
     @WithMockUser
     @DisplayName("강좌 상세 조회 요청이 성공하면 200과 강의·미션을 포함한 상세 정보를 반환한다")
     void givenExistingCourse_whenGetCourseDetail_thenReturns200WithDetail() throws Exception {
-        List<LectureResponse> lectures = List.of(new LectureResponse(10L, "강의 제목", "PRIVATE", "mp4"));
-        List<MissionResponse> missions = List.of(new MissionResponse(20L, "미션 제목", "PRIVATE"));
+        List<LectureResponse> lectures = List.of(new LectureResponse(10L, "강의 제목", "PRIVATE", "mp4", 1));
+        List<MissionResponse> missions = List.of(new MissionResponse(20L, "미션 제목", "PRIVATE", 2));
+        List<CourseItemResponse> items = List.of(
+                new CourseItemResponse("LECTURE", 10L, "강의 제목", "PRIVATE", 1),
+                new CourseItemResponse("MISSION", 20L, "미션 제목", "PRIVATE", 2));
         CourseDetailResponse detail =
-                new CourseDetailResponse(1L, 1L, "강좌 제목", "PRIVATE", "강좌 설명", null, lectures, missions);
+                new CourseDetailResponse(1L, 1L, "강좌 제목", "PRIVATE", "강좌 설명", null, lectures, missions, items);
         when(courseService.getCourseDetail(1L)).thenReturn(detail);
 
         mockMvc.perform(get("/api/courses/1/detail"))
@@ -162,8 +166,18 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.lectures[0].lectureId").value(10L))
                 .andExpect(jsonPath("$.lectures[0].title").value("강의 제목"))
                 .andExpect(jsonPath("$.lectures[0].contentType").value("mp4"))
+                .andExpect(jsonPath("$.lectures[0].sortOrder").value(1))
                 .andExpect(jsonPath("$.missions[0].missionId").value(20L))
-                .andExpect(jsonPath("$.missions[0].title").value("미션 제목"));
+                .andExpect(jsonPath("$.missions[0].title").value("미션 제목"))
+                .andExpect(jsonPath("$.missions[0].sortOrder").value(2))
+                .andExpect(jsonPath("$.items[0].type").value("LECTURE"))
+                .andExpect(jsonPath("$.items[0].id").value(10L))
+                .andExpect(jsonPath("$.items[0].title").value("강의 제목"))
+                .andExpect(jsonPath("$.items[0].sortOrder").value(1))
+                .andExpect(jsonPath("$.items[1].type").value("MISSION"))
+                .andExpect(jsonPath("$.items[1].id").value(20L))
+                .andExpect(jsonPath("$.items[1].title").value("미션 제목"))
+                .andExpect(jsonPath("$.items[1].sortOrder").value(2));
 
         verify(courseService).getCourseDetail(1L);
     }

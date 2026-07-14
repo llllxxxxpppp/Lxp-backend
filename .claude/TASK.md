@@ -52,7 +52,7 @@
 | COURSE-08a | ⚪ | InstructorSuspendedEvent 리스너(정지 강사 강좌 비공개) | Course | - | MEMBER-03 |
 | COURSE-08b | ⚪ | 정지된 강사 2차 방어 인터셉터 | Course | - | COURSE-08a |
 | COURSE-09 | ⚪ | 강좌/강의/미션 소유권(작성 강사 본인) 검증 전체 적용 | Course | - | 없음 |
-| COURSE-10 | 🔵 | 강의/미션 순서 보장 강화 및 물리 삭제 제거 | Course | master-session-2026-07-14 | COURSE-06a, COURSE-07a, COURSE-07b |
+| COURSE-10 | 🟢 | 강의/미션 순서 보장 강화 및 물리 삭제 제거 | Course | - | COURSE-06a, COURSE-07a, COURSE-07b |
 
 세부 내용은 `.claude/task/task-course.md` 참고.
 

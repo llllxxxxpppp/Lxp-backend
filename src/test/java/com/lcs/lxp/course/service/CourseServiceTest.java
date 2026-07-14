@@ -1,6 +1,7 @@
 package com.lcs.lxp.course.service;
 
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
+import com.lcs.lxp.course.dto.response.CourseItemResponse;
 import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.exception.CourseException;
@@ -170,9 +171,22 @@ class CourseServiceTest {
         assertEquals(10L, detail.lectures().get(0).lectureId());
         assertEquals("강의 제목", detail.lectures().get(0).title());
         assertEquals("mp4", detail.lectures().get(0).contentType());
+        assertEquals(1, detail.lectures().get(0).sortOrder());
         assertEquals(1, detail.missions().size());
         assertEquals(20L, detail.missions().get(0).missionId());
         assertEquals("미션 제목", detail.missions().get(0).title());
+        assertEquals(2, detail.missions().get(0).sortOrder());
+
+        List<CourseItemResponse> items = detail.items();
+        assertEquals(2, items.size());
+        assertEquals("LECTURE", items.get(0).type());
+        assertEquals(10L, items.get(0).id());
+        assertEquals("강의 제목", items.get(0).title());
+        assertEquals(1, items.get(0).sortOrder());
+        assertEquals("MISSION", items.get(1).type());
+        assertEquals(20L, items.get(1).id());
+        assertEquals("미션 제목", items.get(1).title());
+        assertEquals(2, items.get(1).sortOrder());
     }
 
     @Test

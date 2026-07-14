@@ -276,9 +276,15 @@
 
 **의존성**: COURSE-06a, COURSE-07a, COURSE-07b (모두 완료)
 
-**영향 범위 참고**: `CourseDetailResponse`는 COURSE-02(🟢)의 대상 파일이었으나, 이번 변경은 필드 추가(응답 구조 확장)이며 COURSE-02의 완료 기준(강사 ID 추출, 공개 상태 수정 거부, 상세/요약 구분) 자체는 변경되지 않으므로 완료 무효화 대상은 아님. 다만 관련 테스트 재실행으로 회귀 여부 확인 필요.
+**영향 범위 참고**: `CourseDetailResponse`는 COURSE-02(🟢)의 대상 파일이었으나, 이번 변경은 필드 추가(응답 구조 확장)이며 COURSE-02의 완료 기준(강사 ID 추출, 공개 상태 수정 거부, 상세/요약 구분) 자체는 변경되지 않으므로 완료 무효화 대상은 아님. 관련 테스트 재실행으로 회귀 없음 확인함.
 
-**진행 기록**: (착수 전)
+**진행 기록**:
+- 4-1(테스트 작성): `CourseTest`(getLectures/getMissions 정렬, getSortableItems 병합 정렬 검증 + removeLecture/removeMission 관련 테스트 9개 삭제), `CourseServiceTest`/`CourseControllerTest`(sortOrder/items 관련 단정 추가).
+- 4-2(구현): `Course.getLectures()`/`getMissions()`를 `sortOrder` 기준 정렬 반환으로 수정, `getSortableItems()` 신규(강의+미션 병합 정렬), `removeLecture`/`removeMission`(물리 삭제, 죽은 코드) 완전 제거. `LectureResponse`/`MissionResponse`에 `sortOrder` 필드 추가(끝에), `CourseItemResponse`(신규) 추가, `CourseDetailResponse`에 `items` 필드 추가(끝에, `getSortableItems()` 재사용).
+- 4-3(리뷰): PASS. 변경 범위 정확, 완료 기준 5항목 실질 충족, `implementation-rules.md` 준수(Entity→DTO는 from 메서드 책임), COURSE-02/04/06b/07a/07b 회귀 없음 확인.
+- 4-4(테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 커버리지 92%+.
+- 커밋 분리: COURSE-07b와 같은 워킹트리에서 동시에 작업되어, 완료 확인 지연 중 두 작업이 뒤섞인 상태로 리뷰/테스트가 진행됨. 사용자 요청(2026-07-14)에 따라 COURSE-07b를 먼저 완료 처리·커밋(f695752)한 뒤, COURSE-10 변경분을 정확히 복원해 별도 커밋으로 분리함(재검증: `./gradlew check` 재실행 PASS 확인).
+- 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 

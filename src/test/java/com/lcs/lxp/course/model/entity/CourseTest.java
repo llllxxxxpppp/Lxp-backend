@@ -193,94 +193,6 @@ class CourseTest {
         assertThrows(CourseException.class, () -> course.addMission(new Title("미션2"), "문제 내용"));
     }
 
-    // --- remove (물리 삭제) ---
-
-    @Test
-    @DisplayName("비공개 강좌에서 강의를 제거할 수 있다")
-    void givenPrivateCourse_whenRemoveLecture_thenLectureIsRemoved() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
-        ReflectionTestUtils.setField(lecture, "id", 10L);
-
-        course.removeLecture(new LectureId(10L));
-
-        assertTrue(course.getLectures().isEmpty());
-    }
-
-    @Test
-    @DisplayName("공개 상태에서 강의를 제거하면 예외가 발생한다")
-    void givenPublicCourse_whenRemoveLecture_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
-        ReflectionTestUtils.setField(lecture, "id", 10L);
-        course.addMission(new Title("미션"), "문제 내용");
-        course.publish();
-
-        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(10L)));
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 강의를 제거하면 예외가 발생한다")
-    void givenNonExistentLecture_whenRemoveLecture_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-
-        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(999L)));
-    }
-
-    @Test
-    @DisplayName("비공개 강좌에서 미션을 제거할 수 있다")
-    void givenPrivateCourse_whenRemoveMission_thenMissionIsRemoved() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Mission mission = course.addMission(new Title("미션"), "문제 내용");
-        ReflectionTestUtils.setField(mission, "id", 20L);
-
-        course.removeMission(new MissionId(20L));
-
-        assertTrue(course.getMissions().isEmpty());
-    }
-
-    @Test
-    @DisplayName("공개 상태에서 미션을 제거하면 예외가 발생한다")
-    void givenPublicCourse_whenRemoveMission_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        course.addLecture(new Title("강의"), "/lectures/1", "mp4");
-        Mission mission = course.addMission(new Title("미션"), "문제 내용");
-        ReflectionTestUtils.setField(mission, "id", 20L);
-        course.publish();
-
-        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(20L)));
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 미션을 제거하면 예외가 발생한다")
-    void givenNonExistentMission_whenRemoveMission_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-
-        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(999L)));
-    }
-
-    @Test
-    @DisplayName("삭제된 강좌에서 강의를 제거하면 예외가 발생한다")
-    void givenDeletedCourse_whenRemoveLecture_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
-        ReflectionTestUtils.setField(lecture, "id", 10L);
-        course.delete();
-
-        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(10L)));
-    }
-
-    @Test
-    @DisplayName("삭제된 강좌에서 미션을 제거하면 예외가 발생한다")
-    void givenDeletedCourse_whenRemoveMission_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Mission mission = course.addMission(new Title("미션"), "문제 내용");
-        ReflectionTestUtils.setField(mission, "id", 20L);
-        course.delete();
-
-        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(20L)));
-    }
-
     @Test
     @DisplayName("존재하지 않는 강의를 Course를 통해 수정하면 예외가 발생한다")
     void givenLectureNotInCourse_whenUpdateLecture_thenThrowsException() {
@@ -546,28 +458,72 @@ class CourseTest {
     }
 
     @Test
-    @DisplayName("강의를 물리 삭제한 후 다시 추가하면 순번이 기존 강의와 중복되지 않고 최댓값 + 1이 된다")
-    void givenLectureRemoved_whenAddLectureAgain_thenSortOrderIsMaxPlusOneAndUnique() {
+    @DisplayName("강의를 재배치한 후 조회하면 sortOrder 오름차순으로 정렬되어 반환된다")
+    void givenLecturesReordered_whenGetLectures_thenReturnedInSortOrderAscending() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lectureA = course.addLecture(new Title("강의A"), "/lectures/a", "mp4");
+        ReflectionTestUtils.setField(lectureA, "id", 10L);
+        Lecture lectureB = course.addLecture(new Title("강의B"), "/lectures/b", "mp4");
+        ReflectionTestUtils.setField(lectureB, "id", 11L);
+        Lecture lectureC = course.addLecture(new Title("강의C"), "/lectures/c", "mp4");
+        ReflectionTestUtils.setField(lectureC, "id", 12L);
+
+        course.reorder(List.of(
+                new ReorderItem(SortableType.LECTURE, 12L),
+                new ReorderItem(SortableType.LECTURE, 10L),
+                new ReorderItem(SortableType.LECTURE, 11L)));
+
+        List<Lecture> lectures = course.getLectures();
+
+        assertEquals(List.of(lectureC, lectureA, lectureB), lectures);
+        assertTrue(lectures.get(0).getSortOrder() < lectures.get(1).getSortOrder());
+        assertTrue(lectures.get(1).getSortOrder() < lectures.get(2).getSortOrder());
+    }
+
+    @Test
+    @DisplayName("미션을 재배치한 후 조회하면 sortOrder 오름차순으로 정렬되어 반환된다")
+    void givenMissionsReordered_whenGetMissions_thenReturnedInSortOrderAscending() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission missionA = course.addMission(new Title("미션A"), "문제A");
+        ReflectionTestUtils.setField(missionA, "id", 20L);
+        Mission missionB = course.addMission(new Title("미션B"), "문제B");
+        ReflectionTestUtils.setField(missionB, "id", 21L);
+        Mission missionC = course.addMission(new Title("미션C"), "문제C");
+        ReflectionTestUtils.setField(missionC, "id", 22L);
+
+        course.reorder(List.of(
+                new ReorderItem(SortableType.MISSION, 22L),
+                new ReorderItem(SortableType.MISSION, 20L),
+                new ReorderItem(SortableType.MISSION, 21L)));
+
+        List<Mission> missions = course.getMissions();
+
+        assertEquals(List.of(missionC, missionA, missionB), missions);
+        assertTrue(missions.get(0).getSortOrder() < missions.get(1).getSortOrder());
+        assertTrue(missions.get(1).getSortOrder() < missions.get(2).getSortOrder());
+    }
+
+    @Test
+    @DisplayName("강의와 미션이 섞인 순서로 추가되고 재배치된 후 getSortableItems를 호출하면 sortOrder 오름차순으로 병합되어 반환된다")
+    void givenLecturesAndMissionsAddedInMixedOrderAndReordered_whenGetSortableItems_thenReturnedMergedInSortOrderAscending() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
         Lecture lecture1 = course.addLecture(new Title("강의1"), "/lectures/1", "mp4");
         ReflectionTestUtils.setField(lecture1, "id", 10L);
+        Mission mission1 = course.addMission(new Title("미션1"), "문제1");
+        ReflectionTestUtils.setField(mission1, "id", 20L);
         Lecture lecture2 = course.addLecture(new Title("강의2"), "/lectures/2", "mp4");
+        ReflectionTestUtils.setField(lecture2, "id", 11L);
 
-        assertEquals(1, lecture1.getSortOrder());
-        assertEquals(2, lecture2.getSortOrder());
+        course.reorder(List.of(
+                new ReorderItem(SortableType.MISSION, 20L),
+                new ReorderItem(SortableType.LECTURE, 11L),
+                new ReorderItem(SortableType.LECTURE, 10L)));
 
-        course.removeLecture(new LectureId(10L));
-        Lecture lecture3 = course.addLecture(new Title("강의3"), "/lectures/3", "mp4");
+        List<Sortable> items = course.getSortableItems();
 
-        assertEquals(3, lecture3.getSortOrder());
-
-        List<Sortable> remaining = new ArrayList<>();
-        remaining.addAll(course.getLectures());
-        remaining.addAll(course.getMissions());
-        List<Integer> sortOrders = remaining.stream().map(Sortable::getSortOrder).collect(Collectors.toList());
-        Set<Integer> uniqueSortOrders = new HashSet<>(sortOrders);
-
-        assertEquals(sortOrders.size(), uniqueSortOrders.size());
+        assertEquals(List.of(mission1, lecture2, lecture1), items);
+        assertTrue(items.get(0).getSortOrder() < items.get(1).getSortOrder());
+        assertTrue(items.get(1).getSortOrder() < items.get(2).getSortOrder());
     }
 
     // --- reorder ---

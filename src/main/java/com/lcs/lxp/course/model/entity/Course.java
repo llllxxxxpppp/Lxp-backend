@@ -7,6 +7,7 @@ import com.lcs.lxp.course.model.vo.InstructorId;
 import com.lcs.lxp.course.model.vo.LectureId;
 import com.lcs.lxp.course.model.vo.MissionId;
 import com.lcs.lxp.course.model.vo.ReorderItem;
+import com.lcs.lxp.course.model.vo.Sortable;
 import com.lcs.lxp.course.model.vo.SortableType;
 import com.lcs.lxp.course.model.vo.Title;
 import jakarta.persistence.CascadeType;
@@ -22,6 +23,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -134,11 +136,27 @@ public class Course {
     }
 
     public List<Lecture> getLectures() {
-        return List.copyOf(lectures);
+        return lectures.stream()
+                .sorted(Comparator.comparingInt(Lecture::getSortOrder))
+                .toList();
     }
 
     public List<Mission> getMissions() {
-        return List.copyOf(missions);
+        return missions.stream()
+                .sorted(Comparator.comparingInt(Mission::getSortOrder))
+                .toList();
+    }
+
+    /**
+     * 강좌에 속한 강의와 미션을 하나의 목록으로 병합하여 sortOrder 오름차순으로 정렬한 통합 뷰를 반환한다.
+     */
+    public List<Sortable> getSortableItems() {
+        List<Sortable> items = new ArrayList<>();
+        items.addAll(lectures);
+        items.addAll(missions);
+        return items.stream()
+                .sorted(Comparator.comparingInt(Sortable::getSortOrder))
+                .toList();
     }
 
     public void update(Title newTitle, String description, String thumbnailUrl) {
@@ -183,8 +201,8 @@ public class Course {
 
     /**
      * 강좌 내 강의/미션(soft delete로 삭제된 항목 포함)을 통틀어 사용 중인 최대 순번 다음 값을 반환한다.
-     * size 기반 계산은 물리 삭제(removeLecture/removeMission) 후 재추가 시 순번이 중복될 수 있으므로,
-     * 실제 사용 중인 최댓값을 기준으로 계산한다.
+     * soft delete된 항목도 순번을 계속 보유하므로, size 기반 계산이 아닌 실제 사용 중인 최댓값을
+     * 기준으로 계산하여 신규 추가 시 기존 순번과 겹치지 않도록 한다.
      */
     private int nextSortOrder() {
         return currentMaxSortOrder() + 1;
@@ -210,22 +228,6 @@ public class Course {
                         missions.stream().filter(Mission::isDeleted).mapToInt(Mission::getSortOrder))
                 .max()
                 .orElse(0);
-    }
-
-    public void removeLecture(LectureId lectureId) {
-        checkNotDeleted();
-        if (status == ContentStatus.PUBLIC) {
-            throw new CourseException("공개 상태에서는 강의를 삭제할 수 없습니다.");
-        }
-        lectures.remove(findLecture(lectureId));
-    }
-
-    public void removeMission(MissionId missionId) {
-        checkNotDeleted();
-        if (status == ContentStatus.PUBLIC) {
-            throw new CourseException("공개 상태에서는 미션을 삭제할 수 없습니다.");
-        }
-        missions.remove(findMission(missionId));
     }
 
     public void updateLecture(LectureId lectureId, Title newTitle, String contentUrl, String contentType) {
