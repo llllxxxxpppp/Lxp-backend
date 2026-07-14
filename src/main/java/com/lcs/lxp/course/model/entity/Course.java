@@ -144,11 +144,11 @@ public class Course {
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public Lecture addLecture(Title lectureTitle, String contentUrl) {
+    public Lecture addLecture(Title lectureTitle, String contentUrl, String contentType) {
         if (status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 추가할 수 없습니다.");
         }
-        Lecture lecture = Lecture.create(this, lectureTitle, contentUrl);
+        Lecture lecture = Lecture.create(this, lectureTitle, contentUrl, contentType);
         lectures.add(lecture);
         return lecture;
     }
@@ -176,8 +176,8 @@ public class Course {
         missions.remove(findMission(missionId));
     }
 
-    public void updateLecture(LectureId lectureId, Title newTitle, String contentUrl) {
-        findLecture(lectureId).update(newTitle, contentUrl);
+    public void updateLecture(LectureId lectureId, Title newTitle, String contentUrl, String contentType) {
+        findLecture(lectureId).update(newTitle, contentUrl, contentType);
     }
 
     public void publishLecture(LectureId lectureId) {

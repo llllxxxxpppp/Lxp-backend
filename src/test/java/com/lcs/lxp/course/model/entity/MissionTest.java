@@ -23,7 +23,7 @@ class MissionTest {
     void setUp() {
         privateCourse = Course.create(new InstructorId(1L), new Title("강좌"), "강좌 설명", null);
         publicCourse = Course.create(new InstructorId(1L), new Title("강좌"), "강좌 설명", null);
-        publicCourse.addLecture(new Title("강의"), "/lectures/1");
+        publicCourse.addLecture(new Title("강의"), "/lectures/1", "mp4");
         publicCourse.addMission(new Title("미션"), "문제 내용");
         publicCourse.publish();
     }

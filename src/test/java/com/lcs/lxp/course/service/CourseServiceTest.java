@@ -49,13 +49,13 @@ class CourseServiceTest {
     @BeforeEach
     void setUp() {
         privateCourse = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
-        Lecture privateLecture = privateCourse.addLecture(new Title("강의"), "/lectures/1");
+        Lecture privateLecture = privateCourse.addLecture(new Title("강의"), "/lectures/1", "mp4");
         ReflectionTestUtils.setField(privateLecture, "id", 10L);
         Mission privateMission = privateCourse.addMission(new Title("미션"), "문제 내용");
         ReflectionTestUtils.setField(privateMission, "id", 20L);
 
         publishedCourse = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
-        Lecture publishedLecture = publishedCourse.addLecture(new Title("강의"), "/lectures/1");
+        Lecture publishedLecture = publishedCourse.addLecture(new Title("강의"), "/lectures/1", "mp4");
         ReflectionTestUtils.setField(publishedLecture, "id", 10L);
         Mission publishedMission = publishedCourse.addMission(new Title("미션"), "문제 내용");
         ReflectionTestUtils.setField(publishedMission, "id", 20L);
@@ -155,7 +155,7 @@ class CourseServiceTest {
     void givenExistingCourseWithLecturesAndMissions_whenGetCourseDetail_thenReturnsDetail() {
         Course course = Course.create(new InstructorId(1L), new Title("강좌 제목"), "강좌 설명", null);
         ReflectionTestUtils.setField(course, "id", 1L);
-        ReflectionTestUtils.setField(course.addLecture(new Title("강의 제목"), "/lectures/1"), "id", 10L);
+        ReflectionTestUtils.setField(course.addLecture(new Title("강의 제목"), "/lectures/1", "mp4"), "id", 10L);
         ReflectionTestUtils.setField(course.addMission(new Title("미션 제목"), "문제 내용"), "id", 20L);
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
 
@@ -168,6 +168,7 @@ class CourseServiceTest {
         assertEquals(1, detail.lectures().size());
         assertEquals(10L, detail.lectures().get(0).lectureId());
         assertEquals("강의 제목", detail.lectures().get(0).title());
+        assertEquals("mp4", detail.lectures().get(0).contentType());
         assertEquals(1, detail.missions().size());
         assertEquals(20L, detail.missions().get(0).missionId());
         assertEquals("미션 제목", detail.missions().get(0).title());
@@ -266,9 +267,10 @@ class CourseServiceTest {
     void givenValidRequest_whenAddLecture_thenLectureIsAdded() {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
-        courseService.addLecture(1L, "새 강의", "/lectures/2");
+        courseService.addLecture(1L, "새 강의", "/lectures/2", "mp4");
 
         assertEquals(2, privateCourse.getLectures().size());
+        assertEquals("mp4", privateCourse.getLectures().get(1).getContentType());
     }
 
     @Test
@@ -276,7 +278,23 @@ class CourseServiceTest {
     void givenNonExistentCourse_whenAddLecture_thenThrowsException() {
         when(courseRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(CourseException.class, () -> courseService.addLecture(999L, "새 강의", "/lectures/2"));
+        assertThrows(CourseException.class, () -> courseService.addLecture(999L, "새 강의", "/lectures/2", "mp4"));
+    }
+
+    @Test
+    @DisplayName("자료 타입이 null이면 강의를 추가할 수 없다")
+    void givenNullContentType_whenAddLecture_thenThrowsException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseException.class, () -> courseService.addLecture(1L, "새 강의", "/lectures/2", null));
+    }
+
+    @Test
+    @DisplayName("자료 타입이 빈 문자열이면 강의를 추가할 수 없다")
+    void givenBlankContentType_whenAddLecture_thenThrowsException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseException.class, () -> courseService.addLecture(1L, "새 강의", "/lectures/2", "   "));
     }
 
     // --- publishLecture ---

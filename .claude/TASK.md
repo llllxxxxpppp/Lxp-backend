@@ -44,8 +44,8 @@
 | COURSE-02 | 🟢 | 강좌 생성/수정/조회 API | Course | - | COURSE-01 |
 | COURSE-03 | 🟢 | 강좌 목록 페이지네이션·검색 | Course | - | COURSE-02 |
 | COURSE-04 | 🟢 | 강의/미션 추가 및 공개·비공개 API | Course | - | COURSE-01 |
-| COURSE-05 | 🔵 | 강의 자료 타입(확장자) 필드 도입 | Course | master-session-2026-07-14 | COURSE-01 |
-| COURSE-06a | ⚪ | 강좌/강의/미션 soft delete 모델 | Course | - | COURSE-01 |
+| COURSE-05 | 🟢 | 강의 자료 타입(확장자) 필드 도입 | Course | - | COURSE-01 |
+| COURSE-06a | 🔵 | 강좌/강의/미션 soft delete 모델 | Course | master-session-2026-07-14 | COURSE-01 |
 | COURSE-06b | ⚪ | 강좌/강의/미션 삭제 API | Course | - | COURSE-06a |
 | COURSE-07a | ⚪ | Sortable 인터페이스 + 순번 필드 | Course | - | COURSE-01 |
 | COURSE-07b | ⚪ | 강좌 단위 순서 변경 API | Course | - | COURSE-07a |

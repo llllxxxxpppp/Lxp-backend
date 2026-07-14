@@ -68,8 +68,8 @@ public class CourseService {
         course.unpublish();
     }
 
-    public void addLecture(Long courseId, String title, String contentUrl) {
-        getCourse(courseId).addLecture(new Title(title), contentUrl);
+    public void addLecture(Long courseId, String title, String contentUrl, String contentType) {
+        getCourse(courseId).addLecture(new Title(title), contentUrl, contentType);
     }
 
     public void publishLecture(Long courseId, Long lectureId) {

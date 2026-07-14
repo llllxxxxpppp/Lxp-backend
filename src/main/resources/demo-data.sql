@@ -75,6 +75,7 @@ INSERT INTO lectures (
     title,
     status,
     content_url,
+    content_type,
     created_at,
     updated_at
 )
@@ -84,6 +85,7 @@ SELECT
     CONCAT('강의 ', r.x, ' - ', c.title),
     'PUBLIC',
     CONCAT('https://cdn.example.com/lectures/course-', c.id, '/lecture-', r.x, '.mp4'),
+    'mp4',
     CURRENT_TIMESTAMP,
     NULL
 FROM courses c

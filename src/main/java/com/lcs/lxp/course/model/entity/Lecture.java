@@ -40,6 +40,9 @@ public class Lecture {
     @Column(nullable = false)
     private String contentUrl;
 
+    @Column(nullable = false)
+    private String contentType;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -48,7 +51,7 @@ public class Lecture {
 
     protected Lecture() {}
 
-    static Lecture create(Course course, Title title, String contentUrl) {
+    static Lecture create(Course course, Title title, String contentUrl, String contentType) {
         if (course == null) {
             throw new CourseException("강좌는 null일 수 없습니다.");
         }
@@ -58,11 +61,15 @@ public class Lecture {
         if (contentUrl == null || contentUrl.isBlank()) {
             throw new CourseException("강의 자료 URL은 비어있을 수 없습니다.");
         }
+        if (contentType == null || contentType.isBlank()) {
+            throw new CourseException("자료 타입은 비어있을 수 없습니다.");
+        }
         Lecture lecture = new Lecture();
         lecture.course = course;
         lecture.title = title;
         lecture.status = ContentStatus.PUBLIC;
         lecture.contentUrl = contentUrl;
+        lecture.contentType = contentType;
         lecture.createdAt = OffsetDateTime.now();
         return lecture;
     }
@@ -87,6 +94,10 @@ public class Lecture {
         return contentUrl;
     }
 
+    public String getContentType() {
+        return contentType;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -95,7 +106,7 @@ public class Lecture {
         return updatedAt;
     }
 
-    void update(Title newTitle, String contentUrl) {
+    void update(Title newTitle, String contentUrl, String contentType) {
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 수정할 수 없습니다.");
         }
@@ -105,8 +116,12 @@ public class Lecture {
         if (contentUrl == null || contentUrl.isBlank()) {
             throw new CourseException("강의 자료 URL은 비어있을 수 없습니다.");
         }
+        if (contentType == null || contentType.isBlank()) {
+            throw new CourseException("자료 타입은 비어있을 수 없습니다.");
+        }
         this.title = newTitle;
         this.contentUrl = contentUrl;
+        this.contentType = contentType;
         this.updatedAt = OffsetDateTime.now();
     }
 

@@ -82,7 +82,7 @@ public class CourseController {
     public ResponseEntity<Void> addLecture(
             @PathVariable Long courseId,
             @RequestBody @Valid AddLectureRequest request) {
-        courseService.addLecture(courseId, request.title(), request.contentUrl());
+        courseService.addLecture(courseId, request.title(), request.contentUrl(), request.contentType());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 

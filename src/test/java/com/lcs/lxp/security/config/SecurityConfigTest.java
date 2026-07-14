@@ -153,21 +153,21 @@ class SecurityConfigTest {
     @WithMockUser(authorities = "ROLE_INSTRUCTOR")
     @DisplayName("강사가 강의 추가를 요청하면 201 Created를 반환한다")
     void givenInstructorRole_whenAddLecture_thenReturns201() throws Exception {
-        AddLectureRequest request = new AddLectureRequest("강의 제목", "https://example.com/lecture");
+        AddLectureRequest request = new AddLectureRequest("강의 제목", "https://example.com/lecture", "mp4");
 
         mockMvc.perform(post("/api/courses/1/lectures")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        verify(courseService).addLecture(1L, "강의 제목", "https://example.com/lecture");
+        verify(courseService).addLecture(1L, "강의 제목", "https://example.com/lecture", "mp4");
     }
 
     @Test
     @WithMockUser(authorities = "ROLE_MEMBER")
     @DisplayName("일반 회원이 강의 추가를 요청하면 403 Forbidden을 반환한다")
     void givenMemberRole_whenAddLecture_thenReturns403() throws Exception {
-        AddLectureRequest request = new AddLectureRequest("강의 제목", "https://example.com/lecture");
+        AddLectureRequest request = new AddLectureRequest("강의 제목", "https://example.com/lecture", "mp4");
 
         mockMvc.perform(post("/api/courses/1/lectures")
                         .contentType(MediaType.APPLICATION_JSON)

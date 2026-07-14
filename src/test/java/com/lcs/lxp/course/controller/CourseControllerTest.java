@@ -147,7 +147,7 @@ class CourseControllerTest {
     @WithMockUser
     @DisplayName("강좌 상세 조회 요청이 성공하면 200과 강의·미션을 포함한 상세 정보를 반환한다")
     void givenExistingCourse_whenGetCourseDetail_thenReturns200WithDetail() throws Exception {
-        List<LectureResponse> lectures = List.of(new LectureResponse(10L, "강의 제목", "PRIVATE"));
+        List<LectureResponse> lectures = List.of(new LectureResponse(10L, "강의 제목", "PRIVATE", "mp4"));
         List<MissionResponse> missions = List.of(new MissionResponse(20L, "미션 제목", "PRIVATE"));
         CourseDetailResponse detail = new CourseDetailResponse(1L, 1L, "강좌 제목", "PRIVATE", "강좌 설명", null, lectures, missions);
         when(courseService.getCourseDetail(1L)).thenReturn(detail);
@@ -157,6 +157,7 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.courseId").value(1L))
                 .andExpect(jsonPath("$.lectures[0].lectureId").value(10L))
                 .andExpect(jsonPath("$.lectures[0].title").value("강의 제목"))
+                .andExpect(jsonPath("$.lectures[0].contentType").value("mp4"))
                 .andExpect(jsonPath("$.missions[0].missionId").value(20L))
                 .andExpect(jsonPath("$.missions[0].title").value("미션 제목"));
 
@@ -431,7 +432,7 @@ class CourseControllerTest {
     @WithMockUser
     @DisplayName("강의 추가 시 제목이 빈 값이면 400을 반환한다")
     void givenBlankTitle_whenAddLecture_thenReturns400() throws Exception {
-        AddLectureRequest request = new AddLectureRequest("", "https://example.com/lecture");
+        AddLectureRequest request = new AddLectureRequest("", "https://example.com/lecture", "mp4");
 
         mockMvc.perform(post("/api/courses/1/lectures")
                         .with(csrf())
@@ -446,7 +447,7 @@ class CourseControllerTest {
     @WithMockUser
     @DisplayName("강의 추가 시 제목이 100자를 초과하면 400을 반환한다")
     void givenTitleExceeding100Chars_whenAddLecture_thenReturns400() throws Exception {
-        AddLectureRequest request = new AddLectureRequest("가".repeat(101), "https://example.com/lecture");
+        AddLectureRequest request = new AddLectureRequest("가".repeat(101), "https://example.com/lecture", "mp4");
 
         mockMvc.perform(post("/api/courses/1/lectures")
                         .with(csrf())
@@ -461,7 +462,52 @@ class CourseControllerTest {
     @WithMockUser
     @DisplayName("강의 추가 시 자료 URL이 빈 값이면 400을 반환한다")
     void givenBlankContentUrl_whenAddLecture_thenReturns400() throws Exception {
-        AddLectureRequest request = new AddLectureRequest("강의 제목", "");
+        AddLectureRequest request = new AddLectureRequest("강의 제목", "", "mp4");
+
+        mockMvc.perform(post("/api/courses/1/lectures")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("강의 추가 요청이 성공하면 201을 반환한다")
+    void givenValidRequest_whenAddLecture_thenReturns201() throws Exception {
+        AddLectureRequest request = new AddLectureRequest("강의 제목", "https://example.com/lecture", "mp4");
+
+        mockMvc.perform(post("/api/courses/1/lectures")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        verify(courseService).addLecture(1L, "강의 제목", "https://example.com/lecture", "mp4");
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("강의 추가 시 자료 타입이 null이면 400을 반환한다")
+    void givenNullContentType_whenAddLecture_thenReturns400() throws Exception {
+        AddLectureRequest request = new AddLectureRequest("강의 제목", "https://example.com/lecture", null);
+
+        mockMvc.perform(post("/api/courses/1/lectures")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("강의 추가 시 자료 타입이 빈 값이면 400을 반환한다")
+    void givenBlankContentType_whenAddLecture_thenReturns400() throws Exception {
+        AddLectureRequest request = new AddLectureRequest("강의 제목", "https://example.com/lecture", "");
 
         mockMvc.perform(post("/api/courses/1/lectures")
                         .with(csrf())

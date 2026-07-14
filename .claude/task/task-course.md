@@ -99,9 +99,17 @@
 
 **관련 규칙 위치**: `.claude/domain/COURSE.md` "강의 애그리거트 도메인 모델 규칙" (자료 타입 필드)
 
-**대상 파일**: `model/entity/Lecture.java`, `dto/request/AddLectureRequest.java`, `dto/response/LectureResponse.java`, `service/CourseService.java`
+**대상 파일**: `model/entity/Lecture.java`, `model/entity/Course.java`(addLecture/updateLecture 시그니처 변경), `dto/request/AddLectureRequest.java`, `dto/response/LectureResponse.java`, `service/CourseService.java`, `controller/CourseController.java`, `security/config/SecurityConfigTest.java`(시그니처 변경에 따른 호출부 보정, 신규 로직 없음), `src/main/resources/demo-data.sql`(NOT NULL 제약에 따른 시드 데이터 보정, 신규 로직 없음)
 
-**진행 기록**: (미착수)
+**진행 기록**:
+- 4-1(테스트 작성) 중 범위 밖 발견(T2 성격, 대상 파일 목록 보정): `SecurityConfigTest.java`가 `AddLectureRequest`/`CourseService.addLecture`의 구 시그니처(자료 타입 없음)를 호출하고 있어, 시그니처 변경 시 컴파일이 깨짐을 확인. 새 비즈니스 로직이 아닌 기계적 호출부 보정이므로 대상 파일에 추가해 같은 작업(COURSE-05) 범위에서 함께 처리하기로 함(2026-07-14).
+- 채택 필드명: `contentType`(String) — 기존 `contentUrl`과의 네이밍 일관성 근거.
+- 4-1(테스트 작성): `LectureTest.java` 전체 재작성(생성/수정 시 null/blank 검증 + 정상 설정 검증), `CourseTest.java`/`MissionTest.java`는 시그니처 변경에 따른 호출부만 보정, `CourseServiceTest.java`/`CourseControllerTest.java`에 서비스·컨트롤러 레벨 검증(null/blank 400, 정상 처리 시 응답 DTO 포함) 신규 추가.
+- 4-2(구현) 중 추가 범위 밖 발견(대상 파일 재보정): `src/main/resources/demo-data.sql`의 `lectures` 시드 INSERT가 신규 `content_type NOT NULL` 컬럼 제약을 위반해 `@SpringBootTest`(`SecurityConfigTest` 등) 컨텍스트 로딩이 깨짐을 확인. 새 비즈니스 로직이 아닌 스키마 변경의 직접적 부수효과이므로 시드 값(`'mp4'`)만 최소 보정(2026-07-14).
+- 4-2(구현): `Lecture.java`(contentType 필드+검증+getter), `Course.java`(addLecture/updateLecture 인자 추가), `AddLectureRequest.java`(`@NotBlank contentType`), `LectureResponse.java`(contentType 필드+from 매핑), `CourseService.java`(addLecture 인자 추가), `CourseController.java`(호출부 보정), `SecurityConfigTest.java`(호출부 보정), `demo-data.sql`(시드 보정) 반영.
+- 4-3(리뷰): PASS. 변경 범위 정확(보고된 파일과 일치), 완료 기준 2항목 실질 충족, implementation-rules.md 준수 확인(원시값 인자/DTO 리턴, from 변환 책임, 타임스탬프 규칙 유지). `Course.updateLecture`에 대응하는 서비스/컨트롤러 엔드포인트가 COURSE-05 이전부터 없었던 기존 설계임을 확인(이번 작업 범위 누락 아님). 범위 밖 발견 2건(SecurityConfigTest 호출부, demo-data.sql 시드)이 기계적 보정에 국한됨을 확인.
+- 4-4(테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 커버리지 91%. `@SpringBootTest` 정상 로딩 확인, 회귀 없음.
+- 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 
