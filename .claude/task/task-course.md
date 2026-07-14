@@ -31,7 +31,11 @@
 **진행 기록**:
 - 기존 구현 확인: `Title`/`ContentStatus`/ID VO 4종, `Course`/`Lecture`/`Mission` 엔티티, 설명 4096자 검증, 강좌 초기 PRIVATE, 발행 조건(강의·미션 각 1개 이상) 모두 코드 존재 확인(`PROGRESS.md` "강좌·강의·미션 도메인 모델(2026-06-22)" 기록과 일치). 테스트: `TitleTest`(6), `CourseTest`(12), `LectureTest`(8), `MissionTest`(8) 확인됨.
 - 미충족 항목 발견(2026-07-13): `Lecture.create()`/`Mission.create()`가 상태를 PRIVATE로 설정 — `COURSE.md`의 "강의는 공개 상태로 생성된다"/"미션은 공개 상태로 생성된다"와 불일치. 사용자 확정(2026-07-13)으로 코드를 PUBLIC 생성으로 수정하기로 함.
-- 판정: ⚪ (완료 기준 중 초기 상태 항목 미충족 — 나머지는 이미 구현되어 있으므로 착수 시 해당 항목 위주로 수정 + 관련 테스트(`LectureTest`, `MissionTest`, `CourseTest`, `CourseServiceTest`) 영향 확인)
+- 4-1(테스트 작성): `LectureTest`/`MissionTest`의 초기 상태 기대값을 PUBLIC으로 변경, "given private" 전제 케이스에 `unpublish()` 보강, `CourseTest`/`LectureTest`/`MissionTest`에 createdAt/updatedAt 검증 신규 추가, `CourseServiceTest`의 private 전제 2곳에 `unpublish` 호출 보강.
+- 4-2(구현): `Lecture.java`(약 64행), `Mission.java`(약 70행)의 초기 상태 설정을 `ContentStatus.PRIVATE` → `ContentStatus.PUBLIC`으로 변경. 다른 파일/로직은 변경 없음.
+- 4-3(리뷰): PASS. 변경 범위 정확성, 테스트-구현 정합성, COURSE-02~04 회귀 없음 확인. 참고용 minor 관찰(`CourseServiceTest` 기존 변수명 `privateLecture`/`privateMission`이 실제로는 PUBLIC 생성 후 unpublish로 상태를 맞춘 것이라 이름과 다소 어긋남 — 로직상 문제 없어 재작업 불필요) 1건.
+- 4-4(테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 전체 커버리지 91.28%. 강의/미션 초기 상태 변경으로 인한 다른 테스트 회귀 없음 확인.
+- 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 

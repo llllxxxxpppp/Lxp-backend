@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LectureTest {
@@ -27,10 +29,19 @@ class LectureTest {
     }
 
     @Test
-    @DisplayName("강의는 비공개 상태로 생성된다")
-    void givenPrivateCourse_whenAddLecture_thenStatusIsPrivate() {
+    @DisplayName("강의는 공개 상태로 생성된다")
+    void givenPrivateCourse_whenAddLecture_thenStatusIsPublic() {
         Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1");
-        assertEquals(ContentStatus.PRIVATE, lecture.getStatus());
+        assertEquals(ContentStatus.PUBLIC, lecture.getStatus());
+    }
+
+    @Test
+    @DisplayName("강의 생성 시 생성일시는 not-null이고 수정일시는 null이다")
+    void givenValidArguments_whenAddLecture_thenCreatedAtNotNullAndUpdatedAtNull() {
+        Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1");
+
+        assertNotNull(lecture.getCreatedAt());
+        assertNull(lecture.getUpdatedAt());
     }
 
     @Test
@@ -69,6 +80,7 @@ class LectureTest {
     @DisplayName("강좌가 비공개이면 강의가 비공개 상태여도 수정할 수 있다")
     void givenPrivateCourseAndPrivateLecture_whenUpdateLecture_thenSucceeds() {
         Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1");
+        lecture.unpublish();
         assertDoesNotThrow(() -> lecture.update(new Title("수정된 강의"), "/lectures/1"));
     }
 
@@ -76,6 +88,7 @@ class LectureTest {
     @DisplayName("강좌가 공개이고 강의가 비공개이면 수정할 수 있다")
     void givenPublicCourseAndPrivateLecture_whenUpdateLecture_thenSucceeds() {
         Lecture lecture = publicCourse.getLectures().get(0);
+        lecture.unpublish();
         assertDoesNotThrow(() -> lecture.update(new Title("수정된 강의"), "/lectures/1"));
     }
 
@@ -112,6 +125,7 @@ class LectureTest {
     @DisplayName("강의를 공개할 수 있다")
     void givenPrivateLecture_whenPublish_thenStatusIsPublic() {
         Lecture lecture = privateCourse.addLecture(new Title("강의"), "/lectures/1");
+        lecture.unpublish();
         lecture.publish();
         assertEquals(ContentStatus.PUBLIC, lecture.getStatus());
     }

@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MissionTest {
@@ -27,10 +29,19 @@ class MissionTest {
     }
 
     @Test
-    @DisplayName("미션은 비공개 상태로 생성된다")
-    void givenPrivateCourse_whenAddMission_thenStatusIsPrivate() {
+    @DisplayName("미션은 공개 상태로 생성된다")
+    void givenPrivateCourse_whenAddMission_thenStatusIsPublic() {
         Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
-        assertEquals(ContentStatus.PRIVATE, mission.getStatus());
+        assertEquals(ContentStatus.PUBLIC, mission.getStatus());
+    }
+
+    @Test
+    @DisplayName("미션 생성 시 생성일시는 not-null이고 수정일시는 null이다")
+    void givenValidArguments_whenAddMission_thenCreatedAtNotNullAndUpdatedAtNull() {
+        Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+
+        assertNotNull(mission.getCreatedAt());
+        assertNull(mission.getUpdatedAt());
     }
 
     @Test
@@ -45,6 +56,7 @@ class MissionTest {
     @DisplayName("강좌가 비공개이면 미션이 비공개 상태여도 수정할 수 있다")
     void givenPrivateCourseAndPrivateMission_whenUpdateMission_thenSucceeds() {
         Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+        mission.unpublish();
         assertDoesNotThrow(() -> mission.update(new Title("수정된 미션"), "수정된 문제 내용"));
     }
 
@@ -52,6 +64,7 @@ class MissionTest {
     @DisplayName("강좌가 공개이고 미션이 비공개이면 수정할 수 있다")
     void givenPublicCourseAndPrivateMission_whenUpdateMission_thenSucceeds() {
         Mission mission = publicCourse.getMissions().get(0);
+        mission.unpublish();
         assertDoesNotThrow(() -> mission.update(new Title("수정된 미션"), "수정된 문제 내용"));
     }
 
@@ -127,6 +140,7 @@ class MissionTest {
     @DisplayName("미션을 공개할 수 있다")
     void givenPrivateMission_whenPublish_thenStatusIsPublic() {
         Mission mission = privateCourse.addMission(new Title("미션"), "문제 내용");
+        mission.unpublish();
         mission.publish();
         assertEquals(ContentStatus.PUBLIC, mission.getStatus());
     }

@@ -13,6 +13,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CourseTest {
@@ -31,6 +33,15 @@ class CourseTest {
     void givenInstructor_whenCreateCourse_thenStatusIsPrivate() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
         assertEquals(ContentStatus.PRIVATE, course.getStatus());
+    }
+
+    @Test
+    @DisplayName("강좌 생성 시 생성일시는 not-null이고 수정일시는 null이다")
+    void givenValidArguments_whenCreateCourse_thenCreatedAtNotNullAndUpdatedAtNull() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+
+        assertNotNull(course.getCreatedAt());
+        assertNull(course.getUpdatedAt());
     }
 
     @Test

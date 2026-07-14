@@ -61,7 +61,7 @@ public class Lecture {
         Lecture lecture = new Lecture();
         lecture.course = course;
         lecture.title = title;
-        lecture.status = ContentStatus.PRIVATE;
+        lecture.status = ContentStatus.PUBLIC;
         lecture.contentUrl = contentUrl;
         lecture.createdAt = OffsetDateTime.now();
         return lecture;

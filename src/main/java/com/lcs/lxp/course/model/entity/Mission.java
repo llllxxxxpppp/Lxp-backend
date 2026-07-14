@@ -67,7 +67,7 @@ public class Mission {
         mission.course = course;
         mission.title = title;
         mission.content = content;
-        mission.status = ContentStatus.PRIVATE;
+        mission.status = ContentStatus.PUBLIC;
         mission.createdAt = OffsetDateTime.now();
         return mission;
     }

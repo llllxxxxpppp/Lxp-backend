@@ -284,6 +284,7 @@ class CourseServiceTest {
     @Test
     @DisplayName("강의를 공개하면 상태가 PUBLIC이 된다")
     void givenPrivateLecture_whenPublishLecture_thenStatusIsPublic() {
+        privateCourse.unpublishLecture(new LectureId(10L));
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
         courseService.publishLecture(1L, 10L);
@@ -345,6 +346,7 @@ class CourseServiceTest {
     @Test
     @DisplayName("미션을 공개하면 상태가 PUBLIC이 된다")
     void givenPrivateMission_whenPublishMission_thenStatusIsPublic() {
+        privateCourse.unpublishMission(new MissionId(20L));
         when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
 
         courseService.publishMission(1L, 20L);
