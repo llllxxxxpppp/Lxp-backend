@@ -6,6 +6,8 @@ import com.lcs.lxp.course.model.vo.CourseId;
 import com.lcs.lxp.course.model.vo.InstructorId;
 import com.lcs.lxp.course.model.vo.LectureId;
 import com.lcs.lxp.course.model.vo.MissionId;
+import com.lcs.lxp.course.model.vo.ReorderItem;
+import com.lcs.lxp.course.model.vo.SortableType;
 import com.lcs.lxp.course.model.vo.Title;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -20,7 +22,9 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 @Entity
@@ -183,12 +187,29 @@ public class Course {
      * 실제 사용 중인 최댓값을 기준으로 계산한다.
      */
     private int nextSortOrder() {
+        return currentMaxSortOrder() + 1;
+    }
+
+    private int currentMaxSortOrder() {
         return IntStream.concat(
                         lectures.stream().mapToInt(Lecture::getSortOrder),
                         missions.stream().mapToInt(Mission::getSortOrder))
                 .max()
-                .orElse(0)
-                + 1;
+                .orElse(0);
+    }
+
+    /**
+     * soft delete된(삭제된) 강의/미션만을 대상으로 사용 중인 최대 순번을 반환한다.
+     * reorder()는 삭제되지 않은 항목 전체를 재배치 대상으로 삼으므로, 재배치로 새로 부여할
+     * 순번의 기준(base)은 "재배치 대상이 아닌(즉 삭제된) 항목이 이미 사용 중인 최댓값"이어야
+     * 재배치 후에도 삭제된 항목의 기존 순번과 절대 겹치지 않는다.
+     */
+    private int maxSortOrderAmongDeleted() {
+        return IntStream.concat(
+                        lectures.stream().filter(Lecture::isDeleted).mapToInt(Lecture::getSortOrder),
+                        missions.stream().filter(Mission::isDeleted).mapToInt(Mission::getSortOrder))
+                .max()
+                .orElse(0);
     }
 
     public void removeLecture(LectureId lectureId) {
@@ -245,6 +266,55 @@ public class Course {
     public void deleteMission(MissionId missionId) {
         checkNotDeleted();
         findMission(missionId).delete();
+    }
+
+    /**
+     * 강좌에 속한 강의/미션의 노출 순서를 요청받은 순서(orderedItems)대로 재할당한다.
+     * soft delete된(삭제된) 강의/미션은 사용자에게 노출되지 않으므로 재배치 대상 및
+     * "전체 개수" 산정에서 제외한다. 요청 항목 개수는 삭제되지 않은 강의+미션 전체 개수와
+     * 정확히 일치해야 하며(부분 재배치 불허), 중복된 항목이나 강좌에 속하지 않는 ID가
+     * 포함된 경우 예외가 발생한다.
+     * 새로 부여하는 순번은 삭제된 강의/미션이 이미 사용 중인 최댓값 다음부터 요청 순서대로
+     * 순차 할당하여, 삭제된 항목의 기존 순번과 절대 겹치지 않도록 한다(연속성은 보장하지 않음).
+     */
+    public void reorder(List<ReorderItem> orderedItems) {
+        checkNotDeleted();
+        if (status == ContentStatus.PUBLIC) {
+            throw new CourseException("공개 상태에서는 순서를 변경할 수 없습니다.");
+        }
+        List<Lecture> activeLectures = lectures.stream().filter(l -> !l.isDeleted()).toList();
+        List<Mission> activeMissions = missions.stream().filter(m -> !m.isDeleted()).toList();
+        int totalActive = activeLectures.size() + activeMissions.size();
+        if (orderedItems == null || orderedItems.size() != totalActive) {
+            throw new CourseException("순서 변경 대상 항목의 개수가 강좌에 속한 강의/미션 전체 개수와 일치하지 않습니다.");
+        }
+        Set<ReorderItem> uniqueItems = new HashSet<>(orderedItems);
+        if (uniqueItems.size() != orderedItems.size()) {
+            throw new CourseException("순서 변경 대상 목록에 중복된 항목이 있습니다.");
+        }
+        int order = maxSortOrderAmongDeleted();
+        for (ReorderItem item : orderedItems) {
+            order++;
+            if (item.type() == SortableType.LECTURE) {
+                findActiveLecture(activeLectures, item.id()).assignSortOrder(order);
+            } else {
+                findActiveMission(activeMissions, item.id()).assignSortOrder(order);
+            }
+        }
+    }
+
+    private Lecture findActiveLecture(List<Lecture> activeLectures, Long lectureId) {
+        return activeLectures.stream()
+                .filter(l -> lectureId.equals(l.getRawId()))
+                .findFirst()
+                .orElseThrow(() -> new CourseException("강의를 찾을 수 없습니다."));
+    }
+
+    private Mission findActiveMission(List<Mission> activeMissions, Long missionId) {
+        return activeMissions.stream()
+                .filter(m -> missionId.equals(m.getRawId()))
+                .findFirst()
+                .orElseThrow(() -> new CourseException("미션을 찾을 수 없습니다."));
     }
 
     private Lecture findLecture(LectureId lectureId) {

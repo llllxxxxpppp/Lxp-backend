@@ -93,6 +93,7 @@ public class SecurityConfig {
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/publish").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/unpublish").hasAnyRole("INSTRUCTOR", "ADMIN");
             auth.requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}").hasAnyRole("INSTRUCTOR", "ADMIN");
+            auth.requestMatchers(HttpMethod.PATCH, "/api/courses/{courseId}/reorder").hasAnyRole("INSTRUCTOR", "ADMIN");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/lectures").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/lectures/{lectureId}/publish").hasRole("INSTRUCTOR");
             auth.requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/lectures/{lectureId}/unpublish")

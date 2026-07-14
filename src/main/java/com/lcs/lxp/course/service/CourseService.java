@@ -9,8 +9,12 @@ import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.InstructorId;
 import com.lcs.lxp.course.model.vo.LectureId;
 import com.lcs.lxp.course.model.vo.MissionId;
+import com.lcs.lxp.course.model.vo.ReorderItem;
+import com.lcs.lxp.course.model.vo.SortableType;
 import com.lcs.lxp.course.model.vo.Title;
 import com.lcs.lxp.course.repository.CourseRepository;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -102,6 +106,17 @@ public class CourseService {
 
     public void deleteMission(Long courseId, Long missionId) {
         getCourse(courseId).deleteMission(new MissionId(missionId));
+    }
+
+    public void reorderItems(Long courseId, List<String> itemTypes, List<Long> itemIds) {
+        if (itemTypes == null || itemIds == null || itemTypes.size() != itemIds.size()) {
+            throw new CourseException("순서 변경 대상 항목 목록이 올바르지 않습니다.");
+        }
+        List<ReorderItem> orderedItems = new ArrayList<>();
+        for (int i = 0; i < itemTypes.size(); i++) {
+            orderedItems.add(new ReorderItem(SortableType.valueOf(itemTypes.get(i)), itemIds.get(i)));
+        }
+        getCourse(courseId).reorder(orderedItems);
     }
 
     private Course getCourse(Long courseId) {

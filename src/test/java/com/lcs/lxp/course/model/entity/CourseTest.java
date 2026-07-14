@@ -5,7 +5,9 @@ import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.InstructorId;
 import com.lcs.lxp.course.model.vo.LectureId;
 import com.lcs.lxp.course.model.vo.MissionId;
+import com.lcs.lxp.course.model.vo.ReorderItem;
 import com.lcs.lxp.course.model.vo.Sortable;
+import com.lcs.lxp.course.model.vo.SortableType;
 import com.lcs.lxp.course.model.vo.Title;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -191,6 +193,94 @@ class CourseTest {
         assertThrows(CourseException.class, () -> course.addMission(new Title("미션2"), "문제 내용"));
     }
 
+    // --- remove (물리 삭제) ---
+
+    @Test
+    @DisplayName("비공개 강좌에서 강의를 제거할 수 있다")
+    void givenPrivateCourse_whenRemoveLecture_thenLectureIsRemoved() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+
+        course.removeLecture(new LectureId(10L));
+
+        assertTrue(course.getLectures().isEmpty());
+    }
+
+    @Test
+    @DisplayName("공개 상태에서 강의를 제거하면 예외가 발생한다")
+    void givenPublicCourse_whenRemoveLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        course.addMission(new Title("미션"), "문제 내용");
+        course.publish();
+
+        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(10L)));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강의를 제거하면 예외가 발생한다")
+    void givenNonExistentLecture_whenRemoveLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+
+        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(999L)));
+    }
+
+    @Test
+    @DisplayName("비공개 강좌에서 미션을 제거할 수 있다")
+    void givenPrivateCourse_whenRemoveMission_thenMissionIsRemoved() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+
+        course.removeMission(new MissionId(20L));
+
+        assertTrue(course.getMissions().isEmpty());
+    }
+
+    @Test
+    @DisplayName("공개 상태에서 미션을 제거하면 예외가 발생한다")
+    void givenPublicCourse_whenRemoveMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+        course.publish();
+
+        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(20L)));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 미션을 제거하면 예외가 발생한다")
+    void givenNonExistentMission_whenRemoveMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+
+        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(999L)));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌에서 강의를 제거하면 예외가 발생한다")
+    void givenDeletedCourse_whenRemoveLecture_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(10L)));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌에서 미션을 제거하면 예외가 발생한다")
+    void givenDeletedCourse_whenRemoveMission_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(20L)));
+    }
+
     @Test
     @DisplayName("존재하지 않는 강의를 Course를 통해 수정하면 예외가 발생한다")
     void givenLectureNotInCourse_whenUpdateLecture_thenThrowsException() {
@@ -251,68 +341,6 @@ class CourseTest {
         assertEquals(ContentStatus.PUBLIC, course.getMissions().get(0).getStatus());
     }
 
-    @Test
-    @DisplayName("비공개 강좌에서 강의를 삭제할 수 있다")
-    void givenPrivateCourse_whenRemoveLecture_thenLectureIsRemoved() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
-        ReflectionTestUtils.setField(lecture, "id", 10L);
-
-        course.removeLecture(new LectureId(10L));
-        assertEquals(0, course.getLectures().size());
-    }
-
-    @Test
-    @DisplayName("공개 강좌에서 강의를 삭제하면 예외가 발생한다")
-    void givenPublicCourse_whenRemoveLecture_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
-        ReflectionTestUtils.setField(lecture, "id", 10L);
-        course.addMission(new Title("미션"), "문제 내용");
-        course.publish();
-
-        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(10L)));
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 강의를 삭제하면 예외가 발생한다")
-    void givenNonExistentLecture_whenRemoveLecture_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-
-        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(999L)));
-    }
-
-    @Test
-    @DisplayName("비공개 강좌에서 미션을 삭제할 수 있다")
-    void givenPrivateCourse_whenRemoveMission_thenMissionIsRemoved() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Mission mission = course.addMission(new Title("미션"), "문제 내용");
-        ReflectionTestUtils.setField(mission, "id", 20L);
-
-        course.removeMission(new MissionId(20L));
-        assertEquals(0, course.getMissions().size());
-    }
-
-    @Test
-    @DisplayName("공개 강좌에서 미션을 삭제하면 예외가 발생한다")
-    void givenPublicCourse_whenRemoveMission_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        course.addLecture(new Title("강의"), "/lectures/1", "mp4");
-        Mission mission = course.addMission(new Title("미션"), "문제 내용");
-        ReflectionTestUtils.setField(mission, "id", 20L);
-        course.publish();
-
-        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(20L)));
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 미션을 삭제하면 예외가 발생한다")
-    void givenNonExistentMission_whenRemoveMission_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-
-        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(999L)));
-    }
-
     // --- delete ---
 
     @Test
@@ -369,28 +397,6 @@ class CourseTest {
         course.delete();
 
         assertThrows(CourseException.class, () -> course.addMission(new Title("미션"), "문제 내용"));
-    }
-
-    @Test
-    @DisplayName("삭제된 강좌에서 강의를 삭제하면 예외가 발생한다")
-    void givenDeletedCourse_whenRemoveLecture_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
-        ReflectionTestUtils.setField(lecture, "id", 10L);
-        course.delete();
-
-        assertThrows(CourseException.class, () -> course.removeLecture(new LectureId(10L)));
-    }
-
-    @Test
-    @DisplayName("삭제된 강좌에서 미션을 삭제하면 예외가 발생한다")
-    void givenDeletedCourse_whenRemoveMission_thenThrowsException() {
-        Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Mission mission = course.addMission(new Title("미션"), "문제 내용");
-        ReflectionTestUtils.setField(mission, "id", 20L);
-        course.delete();
-
-        assertThrows(CourseException.class, () -> course.removeMission(new MissionId(20L)));
     }
 
     @Test
@@ -543,29 +549,131 @@ class CourseTest {
     @DisplayName("강의를 물리 삭제한 후 다시 추가하면 순번이 기존 강의와 중복되지 않고 최댓값 + 1이 된다")
     void givenLectureRemoved_whenAddLectureAgain_thenSortOrderIsMaxPlusOneAndUnique() {
         Course course = Course.create(instructorId, title, "강좌 설명", null);
-        Lecture firstLecture = course.addLecture(new Title("강의1"), "/lectures/1", "mp4");
-        ReflectionTestUtils.setField(firstLecture, "id", 10L);
-        Lecture secondLecture = course.addLecture(new Title("강의2"), "/lectures/2", "mp4");
-        ReflectionTestUtils.setField(secondLecture, "id", 11L);
+        Lecture lecture1 = course.addLecture(new Title("강의1"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture1, "id", 10L);
+        Lecture lecture2 = course.addLecture(new Title("강의2"), "/lectures/2", "mp4");
 
-        assertEquals(1, firstLecture.getSortOrder());
-        assertEquals(2, secondLecture.getSortOrder());
+        assertEquals(1, lecture1.getSortOrder());
+        assertEquals(2, lecture2.getSortOrder());
 
         course.removeLecture(new LectureId(10L));
-        Lecture thirdLecture = course.addLecture(new Title("강의3"), "/lectures/3", "mp4");
+        Lecture lecture3 = course.addLecture(new Title("강의3"), "/lectures/3", "mp4");
 
-        assertEquals(3, thirdLecture.getSortOrder());
+        assertEquals(3, lecture3.getSortOrder());
 
-        List<Sortable> sortables = new ArrayList<>();
-        sortables.addAll(course.getLectures());
-        sortables.addAll(course.getMissions());
-
-        List<Integer> sortOrders = sortables.stream()
-                .map(Sortable::getSortOrder)
-                .collect(Collectors.toList());
+        List<Sortable> remaining = new ArrayList<>();
+        remaining.addAll(course.getLectures());
+        remaining.addAll(course.getMissions());
+        List<Integer> sortOrders = remaining.stream().map(Sortable::getSortOrder).collect(Collectors.toList());
         Set<Integer> uniqueSortOrders = new HashSet<>(sortOrders);
 
         assertEquals(sortOrders.size(), uniqueSortOrders.size());
+    }
+
+    // --- reorder ---
+
+    @Test
+    @DisplayName("강의와 미션의 순서를 요청한 순서대로 재배치하면 순번이 1부터 순서대로 재할당된다")
+    void givenValidOrder_whenReorder_thenSortOrdersAreReassignedInGivenOrder() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+        assertEquals(1, lecture.getSortOrder());
+        assertEquals(2, mission.getSortOrder());
+
+        course.reorder(List.of(
+                new ReorderItem(SortableType.MISSION, 20L),
+                new ReorderItem(SortableType.LECTURE, 10L)));
+
+        assertEquals(1, mission.getSortOrder());
+        assertEquals(2, lecture.getSortOrder());
+    }
+
+    @Test
+    @DisplayName("다른 강좌에 속한(존재하지 않는) 강의 ID가 섞여 있으면 순서 변경 시 예외가 발생한다")
+    void givenLectureIdNotBelongingToCourse_whenReorder_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+
+        assertThrows(CourseException.class, () -> course.reorder(List.of(
+                new ReorderItem(SortableType.LECTURE, 999L),
+                new ReorderItem(SortableType.MISSION, 20L))));
+    }
+
+    @Test
+    @DisplayName("다른 강좌에 속한(존재하지 않는) 미션 ID가 섞여 있으면 순서 변경 시 예외가 발생한다")
+    void givenMissionIdNotBelongingToCourse_whenReorder_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+
+        assertThrows(CourseException.class, () -> course.reorder(List.of(
+                new ReorderItem(SortableType.LECTURE, 10L),
+                new ReorderItem(SortableType.MISSION, 999L))));
+    }
+
+    @Test
+    @DisplayName("강좌에 속한 강의/미션 일부만 순서 변경 대상으로 포함하면 예외가 발생한다")
+    void givenPartialItemList_whenReorder_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+
+        assertThrows(CourseException.class,
+                () -> course.reorder(List.of(new ReorderItem(SortableType.LECTURE, 10L))));
+    }
+
+    @Test
+    @DisplayName("순서 변경 대상 목록에 같은 강의가 중복되어 있으면 예외가 발생한다")
+    void givenDuplicateItemInList_whenReorder_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+
+        assertThrows(CourseException.class, () -> course.reorder(List.of(
+                new ReorderItem(SortableType.LECTURE, 10L),
+                new ReorderItem(SortableType.LECTURE, 10L))));
+    }
+
+    @Test
+    @DisplayName("삭제된 강좌의 순서를 변경하면 예외가 발생한다")
+    void givenDeletedCourse_whenReorder_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+        course.delete();
+
+        assertThrows(CourseException.class, () -> course.reorder(List.of(
+                new ReorderItem(SortableType.LECTURE, 10L),
+                new ReorderItem(SortableType.MISSION, 20L))));
+    }
+
+    @Test
+    @DisplayName("공개 상태에서 순서를 변경하면 예외가 발생한다")
+    void givenPublicCourse_whenReorder_thenThrowsException() {
+        Course course = Course.create(instructorId, title, "강좌 설명", null);
+        Lecture lecture = course.addLecture(new Title("강의"), "/lectures/1", "mp4");
+        ReflectionTestUtils.setField(lecture, "id", 10L);
+        Mission mission = course.addMission(new Title("미션"), "문제 내용");
+        ReflectionTestUtils.setField(mission, "id", 20L);
+        course.publish();
+
+        assertThrows(CourseException.class, () -> course.reorder(List.of(
+                new ReorderItem(SortableType.MISSION, 20L),
+                new ReorderItem(SortableType.LECTURE, 10L))));
     }
 
 }

@@ -3,12 +3,14 @@ package com.lcs.lxp.course.controller;
 import com.lcs.lxp.course.dto.request.AddLectureRequest;
 import com.lcs.lxp.course.dto.request.AddMissionRequest;
 import com.lcs.lxp.course.dto.request.CreateCourseRequest;
+import com.lcs.lxp.course.dto.request.ReorderRequest;
 import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
 import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
 import com.lcs.lxp.course.service.CourseService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -146,6 +148,20 @@ public class CourseController {
             @PathVariable Long courseId,
             @PathVariable Long missionId) {
         courseService.deleteMission(courseId, missionId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/{courseId}/reorder")
+    public ResponseEntity<Void> reorderItems(
+            @PathVariable Long courseId,
+            @RequestBody @Valid ReorderRequest request) {
+        List<String> itemTypes = request.items().stream()
+                .map(item -> item.type().name())
+                .toList();
+        List<Long> itemIds = request.items().stream()
+                .map(ReorderRequest.Item::id)
+                .toList();
+        courseService.reorderItems(courseId, itemTypes, itemIds);
         return ResponseEntity.ok().build();
     }
 }

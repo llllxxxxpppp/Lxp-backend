@@ -489,4 +489,54 @@ class CourseServiceTest {
 
         assertThrows(CourseException.class, () -> courseService.deleteMission(1L, 20L));
     }
+
+    // --- reorderItems ---
+
+    @Test
+    @DisplayName("순서 변경 요청이 유효하면 강의/미션의 순번이 요청 순서대로 재배치된다")
+    void givenValidRequest_whenReorderItems_thenSortOrdersAreReassigned() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        courseService.reorderItems(1L, List.of("MISSION", "LECTURE"), List.of(20L, 10L));
+
+        assertEquals(1, privateCourse.getMissions().get(0).getSortOrder());
+        assertEquals(2, privateCourse.getLectures().get(0).getSortOrder());
+        verify(courseRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강좌의 순서를 변경하면 예외가 발생한다")
+    void givenNonExistentCourse_whenReorderItems_thenThrowsException() {
+        when(courseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseException.class,
+                () -> courseService.reorderItems(999L, List.of("LECTURE"), List.of(10L)));
+    }
+
+    @Test
+    @DisplayName("다른 강좌에 속한 강의/미션 ID가 섞여 있으면 순서 변경 시 예외가 발생한다")
+    void givenItemNotBelongingToCourse_whenReorderItems_thenThrowsException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseException.class, () -> courseService.reorderItems(
+                1L, List.of("LECTURE", "MISSION"), List.of(10L, 999L)));
+    }
+
+    @Test
+    @DisplayName("강좌에 속한 강의/미션 일부만 순서 변경 대상으로 포함하면 예외가 발생한다")
+    void givenPartialItemList_whenReorderItems_thenThrowsException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseException.class,
+                () -> courseService.reorderItems(1L, List.of("LECTURE"), List.of(10L)));
+    }
+
+    @Test
+    @DisplayName("순서 변경 대상 목록에 같은 항목이 중복되어 있으면 예외가 발생한다")
+    void givenDuplicateItem_whenReorderItems_thenThrowsException() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(privateCourse));
+
+        assertThrows(CourseException.class, () -> courseService.reorderItems(
+                1L, List.of("LECTURE", "LECTURE"), List.of(10L, 10L)));
+    }
 }

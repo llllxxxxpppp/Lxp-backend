@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lcs.lxp.course.dto.request.AddLectureRequest;
 import com.lcs.lxp.course.dto.request.AddMissionRequest;
 import com.lcs.lxp.course.dto.request.CreateCourseRequest;
+import com.lcs.lxp.course.dto.request.ReorderRequest;
 import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
+import java.util.List;
 import com.lcs.lxp.course.service.CourseService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -465,5 +467,70 @@ class SecurityConfigTest {
                 .andExpect(status().isOk());
 
         verify(courseService).updateCourse(1L, "수정된 제목", "수정된 설명", null);
+    }
+
+    // --- PATCH /api/courses/{courseId}/reorder (reorderItems) ---
+
+    @Test
+    @WithMockUser(authorities = "ROLE_INSTRUCTOR")
+    @DisplayName("강사가 순서 변경을 요청하면 200 OK를 반환한다")
+    void givenInstructorRole_whenReorderItems_thenReturns200() throws Exception {
+        ReorderRequest request = new ReorderRequest(List.of(
+                new ReorderRequest.Item(ReorderRequest.Type.LECTURE, 10L),
+                new ReorderRequest.Item(ReorderRequest.Type.MISSION, 20L)));
+
+        mockMvc.perform(patch("/api/courses/1/reorder")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(courseService).reorderItems(1L, List.of("LECTURE", "MISSION"), List.of(10L, 20L));
+    }
+
+    @Test
+    @WithMockUser(authorities = "ROLE_ADMIN")
+    @DisplayName("어드민이 순서 변경을 요청하면 200 OK를 반환한다")
+    void givenAdminRole_whenReorderItems_thenReturns200() throws Exception {
+        ReorderRequest request = new ReorderRequest(List.of(
+                new ReorderRequest.Item(ReorderRequest.Type.LECTURE, 10L),
+                new ReorderRequest.Item(ReorderRequest.Type.MISSION, 20L)));
+
+        mockMvc.perform(patch("/api/courses/1/reorder")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(courseService).reorderItems(1L, List.of("LECTURE", "MISSION"), List.of(10L, 20L));
+    }
+
+    @Test
+    @WithMockUser(authorities = "ROLE_MEMBER")
+    @DisplayName("일반 회원이 순서 변경을 요청하면 403 Forbidden을 반환한다")
+    void givenMemberRole_whenReorderItems_thenReturns403() throws Exception {
+        ReorderRequest request = new ReorderRequest(List.of(
+                new ReorderRequest.Item(ReorderRequest.Type.LECTURE, 10L),
+                new ReorderRequest.Item(ReorderRequest.Type.MISSION, 20L)));
+
+        mockMvc.perform(patch("/api/courses/1/reorder")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    @DisplayName("미인증 사용자가 순서 변경을 요청하면 401 Unauthorized를 반환한다")
+    void givenUnauthenticated_whenReorderItems_thenReturns401() throws Exception {
+        ReorderRequest request = new ReorderRequest(List.of(
+                new ReorderRequest.Item(ReorderRequest.Type.LECTURE, 10L),
+                new ReorderRequest.Item(ReorderRequest.Type.MISSION, 20L)));
+
+        mockMvc.perform(patch("/api/courses/1/reorder")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(courseService);
     }
 }

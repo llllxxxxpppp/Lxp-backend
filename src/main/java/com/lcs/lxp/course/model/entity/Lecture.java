@@ -164,6 +164,12 @@ public class Lecture implements Sortable {
         this.deletedAt = OffsetDateTime.now();
     }
 
+    void assignSortOrder(int sortOrder) {
+        checkNotDeleted();
+        this.sortOrder = sortOrder;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
     private void checkNotDeleted() {
         if (deletedAt != null) {
             throw new CourseException("삭제된 강의는 수정할 수 없습니다.");

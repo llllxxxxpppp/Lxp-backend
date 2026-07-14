@@ -197,11 +197,19 @@
 
 **관련 규칙 위치**: `.claude/domain/COURSE.md` "강좌 애그리거트 도메인 모델 규칙" (Sortable 객체 순서 변경)
 
-**대상 파일**: `controller/CourseController.java`, `service/CourseService.java`, `dto/request/ReorderRequest.java`(신규)
+**대상 파일**: `controller/CourseController.java`, `service/CourseService.java`, `dto/request/ReorderRequest.java`(신규), `model/vo/ReorderItem.java`(신규), `model/vo/SortableType.java`(신규), `model/entity/Course.java`, `model/entity/Lecture.java`, `model/entity/Mission.java`, `security/config/SecurityConfig.java`
 
 **의존성**: COURSE-07a
 
-**진행 기록**: (미착수)
+**진행 기록**:
+- 4-1(테스트 작성): `CourseTest`(reorder), `CourseServiceTest`(reorderItems), `CourseControllerTest`(reorderItems), `SecurityConfigTest`(PATCH /api/courses/{courseId}/reorder 권한) 테스트 추가. 설계: `{type, id}` 순서 리스트를 받아 서버가 순차 재할당(클라이언트가 숫자 직접 지정 안 함), 부분 재배치 불허(전체 개수 일치 요구).
+- 4-2(구현, 1차): `ReorderItem`/`SortableType`/`ReorderRequest` 신규, `Course.reorder(List<ReorderItem>)`(개수 불일치/중복/미소속 검증 후 활성 항목만 1..N 재할당), `Lecture`/`Mission`에 `assignSortOrder(int)` 추가, `CourseService.reorderItems`, `CourseController`의 `PATCH /{courseId}/reorder`, `SecurityConfig`에 `hasAnyRole("INSTRUCTOR","ADMIN")` 추가.
+- 4-3(리뷰, 1차): **major 2건** — (1) `assignSortOrder`가 `updatedAt` 미갱신, (2) soft-delete 제외 재배치(활성 항목만 1..N)가 삭제된 항목의 기존 순번과 충돌 가능(재현 시나리오 확인).
+- 4-2(재작업 1회차): `assignSortOrder`에 `updatedAt` 갱신 추가. `Course.reorder()`의 재배치 시작 기준값을 `maxSortOrderAmongDeleted()`(삭제 항목의 최댓값)로 변경해 충돌 방지. 다른 구조 변경 메서드와의 일관성을 위해 `reorder()`에 PUBLIC 상태 가드도 추가(범위 밖 관찰에 대한 일관성 적용).
+- 4-3(재리뷰): PASS. 재현 시나리오(다양한 삭제 패턴) 해소 확인, PUBLIC 가드 검증.
+- 테스트 보강: PUBLIC 가드에 대한 전용 회귀 테스트(`givenPublicCourse_whenReorder_thenThrowsException`) 추가.
+- 4-4(테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 커버리지 92%.
+- 완료 근거: 리뷰 PASS(재작업 1회) + 테스트/PMD 통과 + 사용자 확인(2026-07-14). (COURSE-10 작업 중 발견된 사항 — `getLectures()`/`getMissions()`가 sortOrder 정렬을 보장하지 않고 API 응답에 sortOrder가 노출되지 않는 문제는 COURSE-10에서 별도로 보강.)
 
 ---
 
@@ -248,6 +256,29 @@
 **대상 파일**: `controller/CourseController.java`, `service/CourseService.java` (또는 신규 인가 로직 위치), 영향받는 기존 테스트: `CourseServiceTest.java`, `CourseControllerTest.java`
 
 **진행 기록**: (미착수) — COURSE-02(강좌 수정), COURSE-04(강의/미션 추가·공개·비공개), COURSE-06b(삭제)는 이미 완료 처리되었으나 완료 기준 자체에 소유권 검증이 없었으므로 이번 발견으로 인해 완료 무효화 대상은 아님(범위 확장 신규 작업). 착수 시 위 3개 작업의 기존 테스트가 소유권 검증 추가로 깨지지 않는지 함께 확인 필요.
+
+---
+
+## [COURSE-10] 강의/미션 순서 보장 강화 및 물리 삭제 제거
+
+**설명**: 2026-07-14 `COURSE.md`에 "삭제는 soft delete를 한다"가 명시적으로 추가되면서, `Course.java`에 남아있던 물리 삭제 메서드(`removeLecture`/`removeMission`, 어떤 API에서도 호출되지 않는 죽은 코드)가 문서와 형식적으로 어긋남을 발견. 또한 사용자가 "강좌 내 강의/미션은 동일 리스트에서 관리되고 순서가 보장되어야 한다"는 설계 의도를 확인하는 과정에서, 실제로는 (1) `getLectures()`/`getMissions()`가 `sortOrder` 기준 정렬 없이 반환되고, (2) API 응답(`LectureResponse`/`MissionResponse`/`CourseDetailResponse`)에 `sortOrder`가 전혀 노출되지 않아 클라이언트가 강의+미션의 실제 노출 순서를 알 방법이 없다는 두 가지 문제를 추가로 확인함. DB 테이블 통합(Lecture/Mission Single Table Inheritance)은 대규모 변경이라 범위에서 제외하고, 논리적 통합 뷰 + API 노출 보강으로 범위를 한정하기로 사용자 확정(2026-07-14).
+
+**완료 기준**:
+- `Course.getLectures()`/`getMissions()`가 `sortOrder` 기준 오름차순으로 정렬되어 반환된다
+- `Course.getSortableItems()`(신규)가 강의+미션을 합쳐 `sortOrder` 기준으로 정렬한 통합 뷰를 반환한다
+- `LectureResponse`/`MissionResponse`에 `sortOrder` 필드가 포함된다
+- `CourseDetailResponse`에 강의+미션을 타입 구분과 함께 `sortOrder` 순으로 병합한 통합 목록(`items`)이 포함된다(기존 `lectures`/`missions` 개별 배열은 하위 호환을 위해 유지, 통합 배열을 추가로 제공 — 사용자 확정 옵션 (b))
+- `Course.removeLecture(LectureId)`/`removeMission(MissionId)`(물리 삭제) 및 이를 호출하는 테스트가 제거된다
+
+**관련 규칙 위치**: `.claude/domain/COURSE.md` "모든 애그리거트 공통 규칙"(삭제는 soft delete를 한다), "강좌 애그리거트 도메인 모델 규칙"(Sortable 객체 리스트, 고유 순번, 노출 순서 변경)
+
+**대상 파일**: `model/entity/Course.java`, `dto/response/LectureResponse.java`, `dto/response/MissionResponse.java`, `dto/response/CourseDetailResponse.java`, `dto/response/CourseItemResponse.java`(신규, 통합 목록 항목 표현), `src/test/java/com/lcs/lxp/course/model/entity/CourseTest.java`, `src/test/java/com/lcs/lxp/course/controller/CourseControllerTest.java`, `src/test/java/com/lcs/lxp/course/service/CourseServiceTest.java`(필요 시)
+
+**의존성**: COURSE-06a, COURSE-07a, COURSE-07b (모두 완료)
+
+**영향 범위 참고**: `CourseDetailResponse`는 COURSE-02(🟢)의 대상 파일이었으나, 이번 변경은 필드 추가(응답 구조 확장)이며 COURSE-02의 완료 기준(강사 ID 추출, 공개 상태 수정 거부, 상세/요약 구분) 자체는 변경되지 않으므로 완료 무효화 대상은 아님. 다만 관련 테스트 재실행으로 회귀 여부 확인 필요.
+
+**진행 기록**: (착수 전)
 
 ---
 

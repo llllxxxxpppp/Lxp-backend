@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lcs.lxp.course.dto.request.AddLectureRequest;
 import com.lcs.lxp.course.dto.request.AddMissionRequest;
 import com.lcs.lxp.course.dto.request.CreateCourseRequest;
+import com.lcs.lxp.course.dto.request.ReorderRequest;
 import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
 import com.lcs.lxp.course.dto.response.CoursePageResponse;
@@ -25,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -150,7 +152,8 @@ class CourseControllerTest {
     void givenExistingCourse_whenGetCourseDetail_thenReturns200WithDetail() throws Exception {
         List<LectureResponse> lectures = List.of(new LectureResponse(10L, "강의 제목", "PRIVATE", "mp4"));
         List<MissionResponse> missions = List.of(new MissionResponse(20L, "미션 제목", "PRIVATE"));
-        CourseDetailResponse detail = new CourseDetailResponse(1L, 1L, "강좌 제목", "PRIVATE", "강좌 설명", null, lectures, missions);
+        CourseDetailResponse detail =
+                new CourseDetailResponse(1L, 1L, "강좌 제목", "PRIVATE", "강좌 설명", null, lectures, missions);
         when(courseService.getCourseDetail(1L)).thenReturn(detail);
 
         mockMvc.perform(get("/api/courses/1/detail"))
@@ -660,6 +663,90 @@ class CourseControllerTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
+    }
+
+    // --- reorderItems ---
+
+    @Test
+    @WithMockUser
+    @DisplayName("순서 변경 요청이 성공하면 200을 반환하고 요청 순서대로 서비스에 전달된다")
+    void givenValidRequest_whenReorderItems_thenReturns200() throws Exception {
+        ReorderRequest request = new ReorderRequest(List.of(
+                new ReorderRequest.Item(ReorderRequest.Type.MISSION, 20L),
+                new ReorderRequest.Item(ReorderRequest.Type.LECTURE, 10L)));
+
+        mockMvc.perform(patch("/api/courses/1/reorder")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(courseService).reorderItems(1L, List.of("MISSION", "LECTURE"), List.of(20L, 10L));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("순서 변경 시 서비스에서 예외가 발생하면 400을 반환한다")
+    void givenServiceException_whenReorderItems_thenReturns400() throws Exception {
+        doThrow(new CourseException("강의를 찾을 수 없습니다."))
+                .when(courseService).reorderItems(anyLong(), anyList(), anyList());
+
+        ReorderRequest request = new ReorderRequest(List.of(
+                new ReorderRequest.Item(ReorderRequest.Type.LECTURE, 999L)));
+
+        mockMvc.perform(patch("/api/courses/1/reorder")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("강의를 찾을 수 없습니다."));
+
+        verify(courseService).reorderItems(anyLong(), anyList(), anyList());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("순서 변경 요청의 항목 목록이 비어있으면 400을 반환한다")
+    void givenEmptyItems_whenReorderItems_thenReturns400() throws Exception {
+        ReorderRequest request = new ReorderRequest(List.of());
+
+        mockMvc.perform(patch("/api/courses/1/reorder")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("순서 변경 요청의 항목에 id가 없으면 400을 반환한다")
+    void givenNullItemId_whenReorderItems_thenReturns400() throws Exception {
+        String requestBody = "{\"items\":[{\"type\":\"LECTURE\",\"id\":null}]}";
+
+        mockMvc.perform(patch("/api/courses/1/reorder")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("순서 변경 요청의 항목 타입 값이 잘못되면 400을 반환한다")
+    void givenInvalidItemType_whenReorderItems_thenReturns400() throws Exception {
+        String requestBody = "{\"items\":[{\"type\":\"INVALID\",\"id\":10}]}";
+
+        mockMvc.perform(patch("/api/courses/1/reorder")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(courseService);
