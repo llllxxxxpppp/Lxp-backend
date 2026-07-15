@@ -9,4 +9,6 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
     boolean existsByMemberId(Long memberId);
 
     List<Subscription> findByMemberId(Long memberId);
+
+    List<Subscription> findByActivatedAtIsNotNullAndSuspendedAtIsNullAndCancelledAtIsNull();
 }

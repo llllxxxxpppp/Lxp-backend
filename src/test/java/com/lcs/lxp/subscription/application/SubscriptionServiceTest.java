@@ -23,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -32,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,6 +59,12 @@ class SubscriptionServiceTest {
     private static final Long OTHER_PAID_SUBSCRIPTION_ID = 3L;
     private static final Long FOURTH_SUBSCRIPTION_ID = 4L;
     private static final Long PAYMENT_ID = 100L;
+    private static final Long REISSUE_PRICE = 19_800L;
+    private static final Long ELIGIBLE_SUBSCRIPTION_A_ID = 10L;
+    private static final Long ELIGIBLE_SUBSCRIPTION_B_ID = 12L;
+    private static final Long INELIGIBLE_SUBSCRIPTION_ID = 11L;
+    private static final long FIRST_REISSUED_SUBSCRIPTION_ID = 20L;
+    private static final long FIRST_REISSUED_PAYMENT_ID = 200L;
 
     @Mock
     private SubscriptionRepository subscriptionRepository;
@@ -488,6 +496,112 @@ class SubscriptionServiceTest {
                 .thenReturn(List.of(alreadySuspended, alreadyCancelled));
 
         subscriptionService.processMemberWithdrawal(MEMBER_ID);
+
+        verify(subscriptionRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // reissueExpiringSubscriptions (SUB-07: 매일 0시 배치가 호출하는 자동 재발급 유스케이스.
+    // 후보군은 subscriptionRepository.findByActivatedAtIsNotNullAndSuspendedAtIsNullAndCancelledAtIsNull()
+    // 로 조회하고, 그중 Subscription.isEligibleForReissue()가 true인 것만
+    // subscription.reissue(19_800L)로 재발급하여 저장하고, 재발급된(새) 구독권 기준으로
+    // Payment(PAYMENT)를 추가/저장한 뒤 저장된 Payment의 id로 PaymentRequestedEvent를
+    // 발행한다. 원본 구독권은 reissue() 호출만으로는 변경되지 않으므로 저장되거나 이벤트의
+    // 기준이 되어서는 안 된다.)
+    // -------------------------------------------------------------------------
+
+    private Subscription buildCandidate(Long id, OffsetDateTime activatedAt, OffsetDateTime validUntil) {
+        Subscription subscription = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(subscription, id);
+        ReflectionTestUtils.setField(subscription, "activatedAt", activatedAt);
+        ReflectionTestUtils.setField(subscription, "validUntil", validUntil);
+        return subscription;
+    }
+
+    @Test
+    @DisplayName("만료 임박(2일 이내) 구독권만 각각 19,800원으로 재발급되어 저장되고, 재발급된 구독권 기준으로 결제 요청 이벤트가 발행된다")
+    void givenCandidatesWithSomeNearExpiry_whenReissueExpiringSubscriptions_thenOnlyEligibleOnesAreReissuedSavedAndEventsPublished() {
+        OffsetDateTime now = OffsetDateTime.now();
+        Subscription eligibleA = buildCandidate(ELIGIBLE_SUBSCRIPTION_A_ID, now.minusDays(20), now.plusHours(10));
+        Subscription ineligible = buildCandidate(INELIGIBLE_SUBSCRIPTION_ID, now.minusDays(5), now.plusDays(10));
+        Subscription eligibleB = buildCandidate(ELIGIBLE_SUBSCRIPTION_B_ID, now.minusDays(25), now.plusHours(30));
+
+        when(subscriptionRepository.findByActivatedAtIsNotNullAndSuspendedAtIsNullAndCancelledAtIsNull())
+                .thenReturn(List.of(eligibleA, ineligible, eligibleB));
+
+        AtomicLong nextSubscriptionId = new AtomicLong(FIRST_REISSUED_SUBSCRIPTION_ID);
+        AtomicLong nextPaymentId = new AtomicLong(FIRST_REISSUED_PAYMENT_ID);
+        when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> {
+            Subscription sub = invocation.getArgument(0);
+            if (ReflectionTestUtils.getField(sub, "id") == null) {
+                setId(sub, nextSubscriptionId.getAndIncrement());
+            }
+            for (Payment payment : sub.getPayments()) {
+                if (ReflectionTestUtils.getField(payment, "id") == null) {
+                    setId(payment, nextPaymentId.getAndIncrement());
+                }
+            }
+            return sub;
+        });
+
+        subscriptionService.reissueExpiringSubscriptions();
+
+        ArgumentCaptor<Subscription> subscriptionCaptor = ArgumentCaptor.forClass(Subscription.class);
+        verify(subscriptionRepository, times(2)).save(subscriptionCaptor.capture());
+        List<Subscription> savedSubscriptions = subscriptionCaptor.getAllValues();
+
+        Subscription savedA = savedSubscriptions.get(0);
+        assertEquals(REISSUE_PRICE, savedA.getPrice());
+        assertEquals(eligibleA.getId(), savedA.getParentId());
+        assertEquals(1, savedA.getPayments().size());
+        assertEquals(RequestType.PAYMENT, savedA.getPayments().get(0).getRequestType());
+
+        Subscription savedB = savedSubscriptions.get(1);
+        assertEquals(REISSUE_PRICE, savedB.getPrice());
+        assertEquals(eligibleB.getId(), savedB.getParentId());
+        assertEquals(1, savedB.getPayments().size());
+        assertEquals(RequestType.PAYMENT, savedB.getPayments().get(0).getRequestType());
+
+        verify(subscriptionRepository, never()).save(eligibleA);
+        verify(subscriptionRepository, never()).save(eligibleB);
+        verify(subscriptionRepository, never()).save(ineligible);
+        assertEquals(0, eligibleA.getPayments().size());
+        assertEquals(0, eligibleB.getPayments().size());
+        assertEquals(0, ineligible.getPayments().size());
+
+        ArgumentCaptor<PaymentRequestedEvent> eventCaptor = ArgumentCaptor.forClass(PaymentRequestedEvent.class);
+        verify(eventPublisher, times(2)).publishEvent(eventCaptor.capture());
+        List<PaymentRequestedEvent> events = eventCaptor.getAllValues();
+
+        assertEquals(savedA.getId(), events.get(0).getSubscriptionId());
+        assertEquals(savedA.getPayments().get(0).getId().value(), events.get(0).getPaymentId());
+        assertEquals(savedB.getId(), events.get(1).getSubscriptionId());
+        assertEquals(savedB.getPayments().get(0).getId().value(), events.get(1).getPaymentId());
+    }
+
+    @Test
+    @DisplayName("후보군 중 만료 임박이 아닌 구독권만 있으면 재발급되지 않고 저장이나 이벤트 발행이 일어나지 않는다")
+    void givenOnlyNonNearExpiryCandidates_whenReissueExpiringSubscriptions_thenNoSaveOrEventInvoked() {
+        OffsetDateTime now = OffsetDateTime.now();
+        Subscription ineligible = buildCandidate(INELIGIBLE_SUBSCRIPTION_ID, now.minusDays(5), now.plusDays(10));
+
+        when(subscriptionRepository.findByActivatedAtIsNotNullAndSuspendedAtIsNullAndCancelledAtIsNull())
+                .thenReturn(List.of(ineligible));
+
+        subscriptionService.reissueExpiringSubscriptions();
+
+        verify(subscriptionRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("재발급 대상 후보가 전혀 없으면 아무 것도 저장하거나 발행하지 않는다")
+    void givenNoCandidates_whenReissueExpiringSubscriptions_thenNoSaveOrEventInvoked() {
+        when(subscriptionRepository.findByActivatedAtIsNotNullAndSuspendedAtIsNullAndCancelledAtIsNull())
+                .thenReturn(List.of());
+
+        subscriptionService.reissueExpiringSubscriptions();
 
         verify(subscriptionRepository, never()).save(any());
         verify(eventPublisher, never()).publishEvent(any());

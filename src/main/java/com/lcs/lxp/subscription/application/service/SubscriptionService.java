@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubscriptionService {
 
     private static final long FREE_PRICE = 0L;
+    private static final long PAID_PRICE = 19_800L;
     private static final long SOLE_PAID_SUBSCRIPTION_COUNT = 1L;
 
     private final SubscriptionRepository subscriptionRepository;
@@ -115,6 +116,36 @@ public class SubscriptionService {
                 subscriptionRepository.save(subscription);
             }
         }
+    }
+
+    /**
+     * 매일 0시 배치가 호출하는 만료 임박 구독권 자동 재발급 유스케이스.
+     *
+     * <p>활성화됨 && 정지 안 됨 && 취소 안 됨 상태인 구독권 후보군을 조회한 뒤, 그중
+     * {@link Subscription#isEligibleForReissue()}가 true인 것만 유료({@value #PAID_PRICE}원)로
+     * 재발급한다. 재발급된 새 구독권 기준으로 결제 요청을 추가/저장한 뒤
+     * {@code PaymentRequestedEvent}를 발행한다. 원본 구독권은 변경하거나 저장하지 않는다.
+     */
+    public void reissueExpiringSubscriptions() {
+        List<Subscription> candidates =
+                subscriptionRepository.findByActivatedAtIsNotNullAndSuspendedAtIsNullAndCancelledAtIsNull();
+
+        for (Subscription candidate : candidates) {
+            if (candidate.isEligibleForReissue()) {
+                reissue(candidate);
+            }
+        }
+    }
+
+    private void reissue(Subscription candidate) {
+        Subscription reissued = candidate.reissue(PAID_PRICE);
+        Payment payment = Payment.create(RequestType.PAYMENT);
+        reissued.addPayment(payment);
+
+        reissued = subscriptionRepository.save(reissued);
+        Payment savedPayment = reissued.getPayments().get(0);
+        eventPublisher.publishEvent(
+                new PaymentRequestedEvent(reissued.getId(), savedPayment.getId().value()));
     }
 
     private void requestRefund(Subscription subscription) {

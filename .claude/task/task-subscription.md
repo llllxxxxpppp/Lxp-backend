@@ -248,4 +248,16 @@
 
 **의존성**: SUB-01, SUB-03
 
-**진행 기록**: (미착수)
+**설계 결정 (2026-07-15, 착수 시)**:
+- 수동 트리거 엔드포인트(`POST /api/subscriptions/reissue`)는 재도입하지 않는다 — SUB-04에서 이미 "구독권 생성의 문서화된 트리거는 회원가입 이벤트(무료)와 시스템 재발급(유료) 두 가지뿐"이라는 근거로 수동 생성/재발급 엔드포인트를 제거하기로 확정했고(사용자 확인), 그 판단이 여전히 유효하므로 동일하게 적용한다. 스케줄러만 도입한다.
+- 재발급된 구독권의 가격은 원본 구독권의 가격과 무관하게 항상 유료(19,800원)로 고정한다 — `SUBSCRIPTION.md` "시스템에 의한 재발급이면 유료 구독권을 발급한다" 규칙 근거(SUB-04 계획 변경 메모에 이미 기록됨). 가격 상수(예: `PAID_PRICE = 19_800L`)를 이번 작업에서 도입한다(SUB-04에서 사용처 없어 보류했던 것의 실제 도입 시점).
+- 재발급 후 결제 요청 흐름은 `createSubscription`의 유료 분기(Payment(PAYMENT) 생성 → 저장 → `PaymentRequestedEvent` 발행)와 동일한 패턴을 재사용한다. 다만 `Subscription.create()`가 아닌 `parent.reissue(price)` 복사 생성자를 사용해야 하므로 `createSubscription`을 직접 호출하지 않고 별도 로직으로 구현한다.
+- 재발급 대상 조회: `SubscriptionRepository`에 `findByActivatedAtIsNotNullAndSuspendedAtIsNullAndCancelledAtIsNull()`(활성화·비정지·비취소 후보군) 추가 후, `Subscription.isEligibleForReissue()`(만료 2일 이내 조건 포함)로 서비스 레이어에서 필터링한다 — 만료 임박 여부는 날짜 범위 조건이라 파생 쿼리로 표현하기보다 기존 엔티티 메서드를 재사용하는 것이 기존 코드베이스 패턴(`processMemberWithdrawal`의 인메모리 필터링)과 일관됨.
+- `@Scheduled` 사용을 위해 `LxpApplication`에 `@EnableScheduling`을 추가해야 한다(현재 미적용 확인됨).
+
+**완료 (2026-07-15)**:
+- 테스트: `SubscriptionServiceTest.java`에 `reissueExpiringSubscriptions` 테스트 3종 추가(만료임박 대상 재발급+이벤트 발행, 비대상 제외, 대상 없음). `SubscriptionReissueSchedulerTest.java` 신규(서비스 위임 검증 1종).
+- 구현: `SubscriptionRepository`에 `findByActivatedAtIsNotNullAndSuspendedAtIsNullAndCancelledAtIsNull()` 추가. `SubscriptionService`에 `PAID_PRICE=19_800L` 상수와 `reissueExpiringSubscriptions()` 추가(후보군 조회 → `isEligibleForReissue()` 필터링 → `reissue(PAID_PRICE)` → Payment(PAYMENT) 추가·저장 → **재발급된 새 구독권/Payment 기준**으로 `PaymentRequestedEvent` 발행, 원본은 미변경). `SubscriptionReissueScheduler` 신규(`infrastructure` 패키지, `@Scheduled(cron = "0 0 0 * * *")`). `LxpApplication`에 `@EnableScheduling` 추가.
+- 리뷰: 승인(PASS, minor 2건 — 테스트 클래스 Javadoc의 "SUB-07에서 재작성 예정" 문구가 이번 diff로 모순됨/스케줄러 로그가 이벤트 리스너만큼 구조화되지 않음, 둘 다 기능 영향 없어 기록만).
+- 테스트 실행: `SubscriptionServiceTest` 21/21, `SubscriptionReissueSchedulerTest` 1/1 PASS(전체 PASS), PMD 위반 0건, 전체 커버리지 89%. `@EnableScheduling` 추가로 인한 스프링 컨텍스트 회귀 없음 확인.
+- 완료 근거: 리뷰 승인 + 테스트 전체 통과 + PMD 0건 + 사용자 확인(2026-07-15).
