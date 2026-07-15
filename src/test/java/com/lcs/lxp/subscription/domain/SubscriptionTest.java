@@ -272,4 +272,32 @@ class SubscriptionTest {
 
         assertFalse(subscription.isEligibleForReissue());
     }
+
+    // -------------------------------------------------------------------------
+    // isWithinRefundPeriod (SUB-04: 환불 조건 복원)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("활성화되지 않은(activatedAt이 NULL인) 구독권은 isWithinRefundPeriod()가 false이다")
+    void givenNotActivatedSubscription_whenIsWithinRefundPeriod_thenReturnsFalse() {
+        assertNull(subscription.getActivatedAt());
+
+        assertFalse(subscription.isWithinRefundPeriod());
+    }
+
+    @Test
+    @DisplayName("활성화된 지 14일이 지나지 않았으면 isWithinRefundPeriod()는 true이다")
+    void givenActivatedWithin14Days_whenIsWithinRefundPeriod_thenReturnsTrue() {
+        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(1));
+
+        assertTrue(subscription.isWithinRefundPeriod());
+    }
+
+    @Test
+    @DisplayName("활성화된 지 14일이 지났으면 isWithinRefundPeriod()는 false이다")
+    void givenActivatedMoreThan14DaysAgo_whenIsWithinRefundPeriod_thenReturnsFalse() {
+        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(15));
+
+        assertFalse(subscription.isWithinRefundPeriod());
+    }
 }

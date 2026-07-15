@@ -41,6 +41,9 @@ public class Subscription {
     /** 유효기간 만료 이 일수 이내이면 재발급 대상으로 간주한다. */
     private static final int REISSUE_ELIGIBLE_DAYS_BEFORE_EXPIRY = 2;
 
+    /** 활성화 시점으로부터 이 일수 이내에 취소하면 환불 대상으로 간주한다. */
+    private static final int REFUND_PERIOD_DAYS = 14;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -158,6 +161,17 @@ public class Subscription {
     /** 활성화 true && 정지 false && 취소 false && 유효기간 만료 2일 이내(아직 지나지는 않음). */
     public boolean isEligibleForReissue() {
         return isActivated() && !isSuspended() && !isCancelled() && isNearExpiry();
+    }
+
+    /**
+     * 활성화 일시로부터 환불 허용 기간({@value #REFUND_PERIOD_DAYS}일) 이내인지 여부.
+     * 활성화되지 않은(activatedAt이 null인) 구독권은 환불 대상이 아니므로 false를 반환한다.
+     */
+    public boolean isWithinRefundPeriod() {
+        if (activatedAt == null) {
+            return false;
+        }
+        return OffsetDateTime.now().isBefore(activatedAt.plusDays(REFUND_PERIOD_DAYS));
     }
 
     private boolean isActivated() {

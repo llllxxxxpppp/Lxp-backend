@@ -3,6 +3,7 @@ package com.lcs.lxp.subscription.application;
 import com.lcs.lxp.subscription.application.dto.response.SubscriptionResponse;
 import com.lcs.lxp.subscription.application.service.SubscriptionService;
 import com.lcs.lxp.subscription.domain.event.PaymentRequestedEvent;
+import com.lcs.lxp.subscription.domain.event.RefundRequestedEvent;
 import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
 import com.lcs.lxp.subscription.domain.model.entity.Payment;
 import com.lcs.lxp.subscription.domain.model.entity.Subscription;
@@ -19,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -133,20 +135,69 @@ class SubscriptionServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // cancelSubscription
+    // cancelSubscription (SUB-04: 환불 조건(14일 이내) 분기 복원)
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("본인 소유 구독권을 취소하면 구독권이 취소 상태가 된다")
-    void givenOwnSubscription_whenCancelSubscription_thenSubscriptionIsCancelled() {
+    @DisplayName("본인 소유의 유료 구독권을 활성화 후 14일 이내에 취소하면 환불 요청이 추가되고 RefundRequestedEvent가 발행된 뒤 구독권이 취소된다")
+    void givenOwnPaidSubscriptionWithinRefundPeriod_whenCancelSubscription_thenRefundEventPublishedAndSubscriptionIsCancelled() {
         Subscription subscription = Subscription.create(MEMBER_ID, PAID_PRICE);
-        subscription.activate();
         setId(subscription, SUBSCRIPTION_ID);
+        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(1));
+        when(subscriptionRepository.findById(SUBSCRIPTION_ID)).thenReturn(Optional.of(subscription));
+        when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> {
+            Subscription sub = invocation.getArgument(0);
+            for (Payment payment : sub.getPayments()) {
+                if (ReflectionTestUtils.getField(payment, "id") == null) {
+                    setId(payment, PAYMENT_ID);
+                }
+            }
+            return sub;
+        });
+
+        subscriptionService.cancelSubscription(MEMBER_ID, SUBSCRIPTION_ID);
+
+        assertNotNull(subscription.getCancelledAt());
+        assertEquals(1, subscription.getPayments().size());
+        Payment refundPayment = subscription.getPayments().get(0);
+        assertEquals(RequestType.REFUND, refundPayment.getRequestType());
+        verify(subscriptionRepository, atLeastOnce()).save(subscription);
+
+        ArgumentCaptor<RefundRequestedEvent> eventCaptor = ArgumentCaptor.forClass(RefundRequestedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        RefundRequestedEvent event = eventCaptor.getValue();
+        assertEquals(SUBSCRIPTION_ID, event.getSubscriptionId());
+        assertEquals(PAYMENT_ID, event.getPaymentId());
+    }
+
+    @Test
+    @DisplayName("본인 소유의 유료 구독권이라도 활성화 후 14일이 지나 취소하면 환불 이벤트 없이 구독권만 취소된다")
+    void givenOwnPaidSubscriptionPastRefundPeriod_whenCancelSubscription_thenNoRefundEventAndSubscriptionIsCancelled() {
+        Subscription subscription = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(subscription, SUBSCRIPTION_ID);
+        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(15));
         when(subscriptionRepository.findById(SUBSCRIPTION_ID)).thenReturn(Optional.of(subscription));
 
         subscriptionService.cancelSubscription(MEMBER_ID, SUBSCRIPTION_ID);
 
         assertNotNull(subscription.getCancelledAt());
+        assertEquals(0, subscription.getPayments().size());
+        verify(subscriptionRepository).save(subscription);
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("본인 소유의 무료 구독권을 취소하면 활성화 후 14일 이내이더라도 환불 이벤트 없이 구독권만 취소된다")
+    void givenOwnFreeSubscription_whenCancelSubscription_thenNoRefundEventAndSubscriptionIsCancelled() {
+        Subscription subscription = Subscription.create(MEMBER_ID, FREE_PRICE);
+        setId(subscription, SUBSCRIPTION_ID);
+        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(1));
+        when(subscriptionRepository.findById(SUBSCRIPTION_ID)).thenReturn(Optional.of(subscription));
+
+        subscriptionService.cancelSubscription(MEMBER_ID, SUBSCRIPTION_ID);
+
+        assertNotNull(subscription.getCancelledAt());
+        assertEquals(0, subscription.getPayments().size());
         verify(subscriptionRepository).save(subscription);
         verify(eventPublisher, never()).publishEvent(any());
     }
@@ -164,6 +215,7 @@ class SubscriptionServiceTest {
 
         assertNull(subscription.getCancelledAt());
         verify(subscriptionRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     // -------------------------------------------------------------------------

@@ -111,11 +111,28 @@
 
 **관련 규칙 위치**: `.claude/domain/SUBSCRIPTION.md` "구독권 루트 애그리거트 도메인 모델 규칙"(가격), "구독권 서비스 비즈니스 규칙"
 
-**대상 파일**: `application/service/SubscriptionService.java`, `application/dto/response/SubscriptionResponse.java`, `presentation/SubscriptionController.java`
+**대상 파일**: `application/service/SubscriptionService.java`, `application/dto/response/SubscriptionResponse.java`, `presentation/SubscriptionController.java`, `domain/model/entity/Subscription.java`(환불 조건 판단 메서드 복원)
 
 **의존성**: SUB-01, SUB-02
 
-**진행 기록**: (미착수)
+**계획 변경 (2026-07-14, 사용자 승인)**: 사용자가 `SUBSCRIPTION.md` "구독권 서비스 비즈니스 규칙"에 "시스템에 의한 재발급이면 유료 구독권을 발급한다"를 추가함. 이를 계기로 재확인한 결과, 구독권 생성의 문서화된 트리거는 ① 회원가입 이벤트(무료, SUB-05) ② 시스템 재발급(유료, SUB-07) 두 가지뿐이며, `POST /api/subscriptions`(사용자 직접 호출 수동 생성) 엔드포인트는 도메인 문서 어디에도 근거가 없음(기존 코드에서만 존재). 사용자 확인 결과 이 엔드포인트는 SUB-04에서 **제거**하기로 결정(대안: 유지하며 19,800원 고정 — 미채택). 이에 따라 완료 기준을 아래로 수정:
+
+**완료 기준 (수정됨)**:
+- `SubscriptionController`에서 `POST /api/subscriptions`(수동 생성) 엔드포인트 제거. `SubscriptionService.createSubscription(memberId, price)` 메서드 자체는 SUB-05/SUB-07이 내부적으로 재사용할 예정이므로 유지(컨트롤러 진입점만 제거).
+- `POST /api/subscriptions/reissue` 엔드포인트도 제거(대응하는 서비스 메서드 `reissueExpiring`이 SUB-03에서 이미 제거됨 — SUB-07에서 서비스 메서드와 엔드포인트를 함께 재도입).
+- `cancelSubscription`: 유료(price>0)이고 활성화 후 14일 이내(`Subscription.isWithinRefundPeriod()`)이면 `Payment(REFUND)` 생성·추가·저장 후 `RefundRequestedEvent` 발행(SUB-03에서 메커니즘만 준비했던 트리거를 여기서 실제 연결) → 이후 항상 `subscription.cancel()` 수행. 무료이거나 기간 경과 시 이벤트 없이 취소만.
+- `Subscription.isWithinRefundPeriod()` 복원: 활성화일 + 14일 이내(`REFUND_PERIOD_DAYS=14`, activatedAt이 null이면 false) — 옛 구현(`git show c68f44f`로 원본 확인) 그대로 복원.
+- `SubscriptionResponse`의 부모 구독권 ID·구독 시작 일시·구독 회차 포함은 SUB-03에서 이미 반영 완료(회귀만 확인, 추가 변경 없음).
+- 컨트롤러에는 `GET /{subscriptionId}`(조회), `POST /{subscriptionId}/cancel`(취소)만 남는다.
+- 이번 작업 완료 시 subscription 패키지 전체가 처음으로 정상 컴파일 및 테스트 통과되어야 한다(더 이상 알려진 깨진 파일이 없음).
+- (미채택) 가격 19,800원 상수 도입은 이번 작업에서 하지 않음 — 실제 사용 호출부(SUB-05의 무료 발급, SUB-07의 유료 재발급)가 아직 없어 지금 상수를 만들면 사용처 없는 선제적 구현이 됨. 각 작업이 착수될 때 그 작업에서 도입.
+
+**완료 (2026-07-14)**:
+- 테스트: `SubscriptionTest.java`에 `isWithinRefundPeriod()` 케이스 추가, `SubscriptionServiceTest.java`의 `cancelSubscription` 테스트를 환불 분기(정상 환불/기간 경과/무료/타인 소유) 4종으로 교체, `SubscriptionControllerTest.java` 전면 재작성(수동 생성/재발급 제거 확인 포함).
+- 구현: `Subscription.java`에 `isWithinRefundPeriod()`(옛 구현 그대로 복원, `REFUND_PERIOD_DAYS=14`) 추가. `SubscriptionService.cancelSubscription`을 유료+14일 이내 환불 분기 로직으로 수정(`Payment(REFUND)` 생성→추가→저장→`RefundRequestedEvent` 발행→`cancel()`→저장). `SubscriptionController`에서 수동 생성/재발급 엔드포인트 제거, `get`/`cancel`만 유지.
+- 리뷰: 1차 blocker 1건 — `POST /api/subscriptions/reissue` 제거 확인 테스트가 404를 기대했으나 `GET /{subscriptionId}` 매핑과 경로가 겹쳐 실제로는 405가 정상 동작(테스트 기대값을 405로 수정). 재검증 PASS.
+- 테스트 실행: 전체 330/330 PASS(subscription 패키지 76개 포함), PMD 위반 0건, 전체 커버리지 87%. **이번이 subscription 패키지 전체가 임시 파일 제외 없이 정상 컴파일·테스트·PMD를 통과한 첫 시점.**
+- 완료 근거: 리뷰 승인(재검증 포함) + 테스트 330/330 통과 + PMD 0건 + 사용자 확인(2026-07-14).
 
 ---
 
