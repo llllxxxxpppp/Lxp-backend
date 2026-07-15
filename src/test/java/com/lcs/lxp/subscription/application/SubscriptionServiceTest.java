@@ -21,6 +21,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,6 +53,8 @@ class SubscriptionServiceTest {
     private static final Long FREE_PRICE = 0L;
     private static final Long PAID_PRICE = 9_900L;
     private static final Long SUBSCRIPTION_ID = 1L;
+    private static final Long FREE_SIBLING_SUBSCRIPTION_ID = 2L;
+    private static final Long OTHER_PAID_SUBSCRIPTION_ID = 3L;
     private static final Long PAYMENT_ID = 100L;
 
     @Mock
@@ -135,16 +139,26 @@ class SubscriptionServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // cancelSubscription (SUB-04: 환불 조건(14일 이내) 분기 복원)
+    // cancelSubscription (SUB-04 재작업: 환불 정책 3조건 - 유료 && 유료 구독권 정확히
+    // 1개 && 활성 상태(isValid()) && 14일 이내(isWithinRefundPeriod()) - 모두 충족해야만
+    // 환불 요청(Payment(REFUND) 추가/저장 + RefundRequestedEvent 발행)이 이루어지며, 이 경우
+    // subscription.cancel()은 호출되지 않는다. 하나라도 불만족하면 이벤트/환불 요청 없이
+    // subscription.cancel()만 호출된다.)
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("본인 소유의 유료 구독권을 활성화 후 14일 이내에 취소하면 환불 요청이 추가되고 RefundRequestedEvent가 발행된 뒤 구독권이 취소된다")
-    void givenOwnPaidSubscriptionWithinRefundPeriod_whenCancelSubscription_thenRefundEventPublishedAndSubscriptionIsCancelled() {
+    @DisplayName("유료/활성/14일 이내이면서 회원의 유료 구독권이 정확히 1개이면 환불이 요청되고 취소(cancel)는 호출되지 않는다")
+    void givenSolePaidActiveSubscriptionWithinRefundPeriod_whenCancelSubscription_thenRefundRequestedAndCancelNotInvoked() {
         Subscription subscription = Subscription.create(MEMBER_ID, PAID_PRICE);
         setId(subscription, SUBSCRIPTION_ID);
         ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(1));
+
+        Subscription freeSibling = Subscription.create(MEMBER_ID, FREE_PRICE);
+        setId(freeSibling, FREE_SIBLING_SUBSCRIPTION_ID);
+
         when(subscriptionRepository.findById(SUBSCRIPTION_ID)).thenReturn(Optional.of(subscription));
+        lenient().when(subscriptionRepository.findByMemberId(MEMBER_ID))
+                .thenReturn(List.of(subscription, freeSibling));
         when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> {
             Subscription sub = invocation.getArgument(0);
             for (Payment payment : sub.getPayments()) {
@@ -157,7 +171,7 @@ class SubscriptionServiceTest {
 
         subscriptionService.cancelSubscription(MEMBER_ID, SUBSCRIPTION_ID);
 
-        assertNotNull(subscription.getCancelledAt());
+        assertNull(subscription.getCancelledAt());
         assertEquals(1, subscription.getPayments().size());
         Payment refundPayment = subscription.getPayments().get(0);
         assertEquals(RequestType.REFUND, refundPayment.getRequestType());
@@ -171,12 +185,15 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("본인 소유의 유료 구독권이라도 활성화 후 14일이 지나 취소하면 환불 이벤트 없이 구독권만 취소된다")
-    void givenOwnPaidSubscriptionPastRefundPeriod_whenCancelSubscription_thenNoRefundEventAndSubscriptionIsCancelled() {
-        Subscription subscription = Subscription.create(MEMBER_ID, PAID_PRICE);
+    @DisplayName("무료 구독권을 취소하면 활성화 후 14일 이내이더라도 환불 없이 구독권 취소만 수행된다")
+    void givenFreeSubscription_whenCancelSubscription_thenNoRefundAndSubscriptionIsCancelled() {
+        Subscription subscription = Subscription.create(MEMBER_ID, FREE_PRICE);
         setId(subscription, SUBSCRIPTION_ID);
-        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(15));
+        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(1));
+
         when(subscriptionRepository.findById(SUBSCRIPTION_ID)).thenReturn(Optional.of(subscription));
+        lenient().when(subscriptionRepository.findByMemberId(MEMBER_ID))
+                .thenReturn(List.of(subscription));
 
         subscriptionService.cancelSubscription(MEMBER_ID, SUBSCRIPTION_ID);
 
@@ -187,12 +204,57 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("본인 소유의 무료 구독권을 취소하면 활성화 후 14일 이내이더라도 환불 이벤트 없이 구독권만 취소된다")
-    void givenOwnFreeSubscription_whenCancelSubscription_thenNoRefundEventAndSubscriptionIsCancelled() {
-        Subscription subscription = Subscription.create(MEMBER_ID, FREE_PRICE);
+    @DisplayName("유료/활성/14일 이내이더라도 회원의 유료 구독권이 2개 이상이면 환불 없이 구독권 취소만 수행된다")
+    void givenMultiplePaidSubscriptionsForMember_whenCancelSubscription_thenNoRefundAndSubscriptionIsCancelled() {
+        Subscription subscription = Subscription.create(MEMBER_ID, PAID_PRICE);
         setId(subscription, SUBSCRIPTION_ID);
         ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(1));
+
+        Subscription otherPaid = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(otherPaid, OTHER_PAID_SUBSCRIPTION_ID);
+
         when(subscriptionRepository.findById(SUBSCRIPTION_ID)).thenReturn(Optional.of(subscription));
+        when(subscriptionRepository.findByMemberId(MEMBER_ID))
+                .thenReturn(List.of(subscription, otherPaid));
+
+        subscriptionService.cancelSubscription(MEMBER_ID, SUBSCRIPTION_ID);
+
+        assertNotNull(subscription.getCancelledAt());
+        assertEquals(0, subscription.getPayments().size());
+        verify(subscriptionRepository).save(subscription);
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("유료/활성/유료 구독권 1개이더라도 활성화 후 14일이 지났으면 환불 없이 구독권 취소만 수행된다")
+    void givenSolePaidActiveSubscriptionPastRefundPeriod_whenCancelSubscription_thenNoRefundAndSubscriptionIsCancelled() {
+        Subscription subscription = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(subscription, SUBSCRIPTION_ID);
+        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(15));
+
+        when(subscriptionRepository.findById(SUBSCRIPTION_ID)).thenReturn(Optional.of(subscription));
+        lenient().when(subscriptionRepository.findByMemberId(MEMBER_ID))
+                .thenReturn(List.of(subscription));
+
+        subscriptionService.cancelSubscription(MEMBER_ID, SUBSCRIPTION_ID);
+
+        assertNotNull(subscription.getCancelledAt());
+        assertEquals(0, subscription.getPayments().size());
+        verify(subscriptionRepository).save(subscription);
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("유료/유료 구독권 1개/14일 이내이더라도 이미 유효기간이 만료되어 활성 상태(isValid)가 아니면 환불 없이 구독권 취소만 수행된다")
+    void givenSolePaidSubscriptionExpiredButWithinRefundWindow_whenCancelSubscription_thenNoRefundAndSubscriptionIsCancelled() {
+        Subscription subscription = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(subscription, SUBSCRIPTION_ID);
+        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(1));
+        ReflectionTestUtils.setField(subscription, "validUntil", OffsetDateTime.now().minusDays(1));
+
+        when(subscriptionRepository.findById(SUBSCRIPTION_ID)).thenReturn(Optional.of(subscription));
+        lenient().when(subscriptionRepository.findByMemberId(MEMBER_ID))
+                .thenReturn(List.of(subscription));
 
         subscriptionService.cancelSubscription(MEMBER_ID, SUBSCRIPTION_ID);
 

@@ -9,6 +9,7 @@ import com.lcs.lxp.subscription.domain.model.entity.Subscription;
 import com.lcs.lxp.subscription.domain.model.vo.RequestType;
 import com.lcs.lxp.subscription.domain.model.vo.ResponseResult;
 import com.lcs.lxp.subscription.domain.repository.SubscriptionRepository;
+import java.util.List;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubscriptionService {
 
     private static final long FREE_PRICE = 0L;
+    private static final long SOLE_PAID_SUBSCRIPTION_COUNT = 1L;
 
     private final SubscriptionRepository subscriptionRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -57,9 +59,11 @@ public class SubscriptionService {
     }
 
     /**
-     * 본인 소유의 구독권만 취소할 수 있다. 유료 구독권을 활성화 일시로부터 환불 허용 기간
-     * 이내에 취소하면 환불 요청을 추가하고 저장하여 ID를 확보한 뒤 {@code RefundRequestedEvent}를
-     * 발행한다. 무료 구독권이거나 환불 허용 기간이 지난 경우에는 이벤트 발행 없이 취소만 수행한다.
+     * 본인 소유의 구독권만 취소할 수 있다. 환불 정책({@link #isEligibleForRefund})을 만족하면
+     * 환불 요청을 추가하고 저장하여 ID를 확보한 뒤 {@code RefundRequestedEvent}를 발행하며, 이
+     * 경우 {@code subscription.cancel()}은 호출하지 않는다(정지 처리는 이후 환불 성공 응답을
+     * 수신하는 이벤트 리스너의 책임이다). 환불 정책을 만족하지 않으면 이벤트 발행 없이
+     * {@code subscription.cancel()}만 호출한다.
      */
     public void cancelSubscription(Long memberId, Long subscriptionId) {
         Subscription subscription = findSubscription(subscriptionId);
@@ -68,17 +72,42 @@ public class SubscriptionService {
             throw new SubscriptionException("본인의 구독권만 취소할 수 있습니다.");
         }
 
-        boolean isPaid = subscription.getPrice() > FREE_PRICE;
-        if (isPaid && subscription.isWithinRefundPeriod()) {
+        if (isEligibleForRefund(subscription)) {
             Payment refundPayment = Payment.create(RequestType.REFUND);
             subscription.addPayment(refundPayment);
             subscriptionRepository.save(subscription);
             eventPublisher.publishEvent(
                     new RefundRequestedEvent(subscription.getId(), refundPayment.getId().value()));
+        } else {
+            subscription.cancel();
+            subscriptionRepository.save(subscription);
+        }
+    }
+
+    /**
+     * 환불 정책을 만족하는지 판정한다. 다음 조건을 모두 만족해야 한다.
+     * <ul>
+     *     <li>대상 구독권이 유료({@code price > 0})이다.</li>
+     *     <li>해당 회원에게 발급된 전체 구독권 중 유료 구독권의 개수가 정확히 1개이다.</li>
+     *     <li>대상 구독권이 현재 활성 상태({@link Subscription#isValid()})이다.</li>
+     *     <li>대상 구독권이 활성화 후 환불 허용 기간 이내({@link Subscription#isWithinRefundPeriod()})이다.</li>
+     * </ul>
+     */
+    private boolean isEligibleForRefund(Subscription subscription) {
+        boolean isPaid = subscription.getPrice() > FREE_PRICE;
+        if (!isPaid) {
+            return false;
         }
 
-        subscription.cancel();
-        subscriptionRepository.save(subscription);
+        List<Subscription> memberSubscriptions = subscriptionRepository.findByMemberId(subscription.getMemberId());
+        long paidCount = memberSubscriptions.stream()
+                .filter(memberSubscription -> memberSubscription.getPrice() > FREE_PRICE)
+                .count();
+        if (paidCount != SOLE_PAID_SUBSCRIPTION_COUNT) {
+            return false;
+        }
+
+        return subscription.isValid() && subscription.isWithinRefundPeriod();
     }
 
     @Transactional(readOnly = true)

@@ -57,9 +57,9 @@
 | SUB-01 | 🟢 | 구독권 애그리거트 재설계 (상태 표현·재발급 체인·유효기간) | Subscription | - | 없음 |
 | SUB-02 | 🟢 | Payment 애그리거트 요청 리스트 구조 재설계 | Subscription | - | SUB-01 |
 | SUB-03 | 🟢 | 결제/환불 이벤트 기반 아키텍처 전환 | Subscription | - | SUB-02 |
-| SUB-04 | 🟡 | 구독권 조회/취소 API 정합성 조정 (수동 생성 API 제거, 환불 조건 복원) | Subscription | - | SUB-01, SUB-02 |
+| SUB-04 | 🟢 | 구독권 조회/취소 API 정합성 조정 (수동 생성 API 제거, 환불 조건 복원) | Subscription | - | SUB-01, SUB-02 |
 | SUB-05 | 🟢 | 회원가입 이벤트 리스너(무료 구독권 자동 발급) | Subscription | - | SUB-01, MEMBER-02 |
-| SUB-06 | 🟠 | 회원 정지/탈퇴 이벤트 리스너(구독권 정지·환불) | Subscription | - | SUB-01, SUB-04, MEMBER-05, MEMBER-04 |
+| SUB-06 | ⚪ | 회원 정지/탈퇴 이벤트 리스너(구독권 정지·환불) | Subscription | - | SUB-01, SUB-04, MEMBER-05, MEMBER-04 |
 | SUB-07 | ⚪ | 만료 임박 구독권 자동 재발급 배치 | Subscription | - | SUB-01, SUB-03 |
 
 세부 내용은 `.claude/task/task-subscription.md` 참고.
@@ -77,7 +77,9 @@
 - 영향 분석 결과 **SUB-01, SUB-04**를 🟢 → 🟡(재검증 필요)로 변경. 재검증 방법은 둘 다 재구현(세부 사유·수정된 완료 기준은 `task-subscription.md` 각 작업 진행 기록 참고).
 - **SUB-06**은 미착수(⚪) 상태였으나 완료 기준의 근거 규칙 자체가 바뀌었고 SUB-01/SUB-04 재검증에 의존하므로 🟠(연관작업대기)로 전환, 의존성에 SUB-04 추가.
 - SUB-02/SUB-03/SUB-05가 참조하는 규칙 문구는 이번 diff에서 변경되지 않아 영향 없음(그대로 🟢 유지).
-- **SUB-01 재검증 완료(2026-07-15)**: 신규 불변식 3개 가드 구현·테스트 33/33 통과. 리뷰 중 발견된 blocker(환불 대상 구독권 취소 시 `SubscriptionService.cancelSubscription()`이 `suspend()` 후 `cancel()`을 호출해 새 가드에 의해 예외 발생)는 SUB-01 범위 밖으로 판단, SUB-04로 이관(사용자 확인). **SUB-04 완료 전까지 알려진 임시 회귀**: 유료+환불기간 이내 구독권 취소 API 호출 시 예외 발생 — SUB-04를 다음으로 즉시 진행하기로 함(세부 근거: `task-subscription.md` SUB-01 진행 기록).
+- **SUB-01 재검증 완료(2026-07-15)**: 신규 불변식 3개 가드 구현·테스트 33/33 통과. 리뷰 중 발견된 blocker(환불 대상 구독권 취소 시 `SubscriptionService.cancelSubscription()`이 `suspend()` 후 `cancel()`을 호출해 새 가드에 의해 예외 발생)는 SUB-01 범위 밖으로 판단, SUB-04로 이관(사용자 확인).
+- **SUB-04 재검증 완료(2026-07-15)**: 환불 정책(유료+회원의 유료 구독권 정확히 1개+활성+14일 이내) 판정 로직(`isEligibleForRefund`)을 신규 도입해 `cancelSubscription` 재작성, `SubscriptionRepository.findByMemberId` 추가. SUB-01의 blocker가 `cancel()` 미호출 경로로 실제 해소됨을 확인. 테스트 10/10(전체 PASS), PMD 0건. 이로써 SUB-01/SUB-04 모두 🟢 복귀 — 임시 회귀 창 종료.
+- 위 완료에 따라 SUB-06(의존성: SUB-01, SUB-04, MEMBER-05, MEMBER-04)이 모두 충족되어 🟠 → ⚪로 갱신.
 
 ### 크로스커팅 발견 사항 처리 결과 (2026-07-13)
 

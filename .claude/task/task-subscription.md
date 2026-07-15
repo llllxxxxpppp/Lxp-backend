@@ -172,6 +172,14 @@
 - 환불 정책 판정 로직은 SUB-06(회원 탈퇴 처리)에서도 동일하게 재사용될 예정이므로, `SubscriptionService` 내 재사용 가능한 형태(private 메서드 등)로 구현할 것을 권고.
 - `isWithinRefundPeriod()`(활성화 후 14일 이내 판단)는 SUB-01에서 이미 구현되어 있어 그대로 재사용 가능. "정확히 1개의 유료 구독권" 조건만 신규 추가 구현 필요.
 - **열린 질문(착수 시 확인 필요)**: 아직 활성화되지 않은 구독권(결제 대기/실패 상태)에 대해 회원이 취소를 시도하는 경우의 처리 방식. SUB-01의 신규 불변식("활성화 이후에만 정지/취소 가능")에 따르면 `cancel()` 호출 시 예외가 발생하는데, 도메인 문서에는 이 케이스에 대한 명시가 없음. SUB-04 착수 시 사용자에게 재확인 필요.
+  - **결론(2026-07-15)**: 별도 분기 없이 새 불변식대로 `SubscriptionException`이 자연스럽게 전파되도록 둔다. 결제 실패로 활성화되지 않은 구독권은 애초에 "취소"할 대상이 아니라는 도메인 모델링과 일치하는 해석으로 판단, 특별 처리를 추가하지 않음.
+
+**재검증 완료 (2026-07-15)**:
+- 테스트: `SubscriptionServiceTest.java`의 `cancelSubscription` 관련 테스트를 새 환불 정책(4조건 AND) 기준으로 전면 교체 — 환불 정책 만족(유료+단독+활성+14일 이내), 무료 구독권, 유료 구독권 2개 이상 존재, 환불기간 경과, 만료로 인한 비활성 상태 5종 + 타인 소유 취소 시도 예외(회귀) 유지.
+- 구현: `SubscriptionRepository`에 `findByMemberId(Long): List<Subscription>` 추가. `SubscriptionService.cancelSubscription`을 재작성해 신규 private 메서드 `isEligibleForRefund(Subscription)`(유료 && 회원의 유료 구독권 정확히 1개 && `isValid()` && `isWithinRefundPeriod()`)로 환불 정책을 판정 — 만족 시 `Payment(REFUND)` 생성·추가·저장 후 `RefundRequestedEvent` 발행만 수행(`cancel()` 미호출), 불만족 시 이벤트 없이 `cancel()`만 수행. `isEligibleForRefund`는 SUB-06 재사용을 고려해 별도 메서드로 분리.
+- 리뷰: 승인(PASS, minor 1건 — 테스트의 일부 `lenient()` 스텁이 실제로는 항상 호출되어 불필요, 기능 영향 없어 기록만). SUB-01에서 발견됐던 blocker(환불 대상 취소 시 suspend 후 cancel 호출로 예외 발생)가 이번 재작성으로 `cancel()` 미호출 경로가 되어 실제로 해소됨을 코드 경로로 확인.
+- 테스트 실행: `SubscriptionServiceTest` 10/10 PASS, 전체 테스트 PASS, PMD 위반 0건, 전체 커버리지 89.63%.
+- 완료 근거: 리뷰 승인 + 테스트 10/10 통과(전체 PASS) + PMD 0건 + 사용자 확인(2026-07-15).
 
 ---
 
