@@ -54,12 +54,12 @@
 
 세부 내용은 `.claude/task/task-course.md` 참고.
 
-| SUB-01 | 🟢 | 구독권 애그리거트 재설계 (상태 표현·재발급 체인·유효기간) | Subscription | - | 없음 |
+| SUB-01 | 🟡 | 구독권 애그리거트 재설계 (상태 표현·재발급 체인·유효기간) | Subscription | - | 없음 |
 | SUB-02 | 🟢 | Payment 애그리거트 요청 리스트 구조 재설계 | Subscription | - | SUB-01 |
 | SUB-03 | 🟢 | 결제/환불 이벤트 기반 아키텍처 전환 | Subscription | - | SUB-02 |
-| SUB-04 | 🟢 | 구독권 조회/취소 API 정합성 조정 (수동 생성 API 제거, 환불 조건 복원) | Subscription | - | SUB-01, SUB-02 |
+| SUB-04 | 🟡 | 구독권 조회/취소 API 정합성 조정 (수동 생성 API 제거, 환불 조건 복원) | Subscription | - | SUB-01, SUB-02 |
 | SUB-05 | 🟢 | 회원가입 이벤트 리스너(무료 구독권 자동 발급) | Subscription | - | SUB-01, MEMBER-02 |
-| SUB-06 | ⚪ | 회원 정지/탈퇴 이벤트 리스너(구독권 정지·취소) | Subscription | - | SUB-01, MEMBER-05, MEMBER-04 |
+| SUB-06 | 🟠 | 회원 정지/탈퇴 이벤트 리스너(구독권 정지·환불) | Subscription | - | SUB-01, SUB-04, MEMBER-05, MEMBER-04 |
 | SUB-07 | ⚪ | 만료 임박 구독권 자동 재발급 배치 | Subscription | - | SUB-01, SUB-03 |
 
 세부 내용은 `.claude/task/task-subscription.md` 참고.
@@ -70,6 +70,13 @@
 | SEC-04 | 🟢 | 인증 Principal/UserDetailsService 단위 테스트 | Security | - | 없음 |
 
 세부 내용은 `.claude/task/task-security.md` 참고.
+
+### Subscription 도메인 문서 갱신에 따른 완료 무효화 (2026-07-15, 사용자 승인)
+
+- `.claude/domain/SUBSCRIPTION.md`에 누락/오기 규칙이 사용자에 의해 직접 수정됨(구독권 상태 불변식 3개 신규 추가, 환불 정책 명문화, 회원 탈퇴/취소 처리 로직 변경).
+- 영향 분석 결과 **SUB-01, SUB-04**를 🟢 → 🟡(재검증 필요)로 변경. 재검증 방법은 둘 다 재구현(세부 사유·수정된 완료 기준은 `task-subscription.md` 각 작업 진행 기록 참고).
+- **SUB-06**은 미착수(⚪) 상태였으나 완료 기준의 근거 규칙 자체가 바뀌었고 SUB-01/SUB-04 재검증에 의존하므로 🟠(연관작업대기)로 전환, 의존성에 SUB-04 추가.
+- SUB-02/SUB-03/SUB-05가 참조하는 규칙 문구는 이번 diff에서 변경되지 않아 영향 없음(그대로 🟢 유지).
 
 ### 크로스커팅 발견 사항 처리 결과 (2026-07-13)
 
