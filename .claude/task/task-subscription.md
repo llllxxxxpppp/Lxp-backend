@@ -68,6 +68,14 @@
 
 **재검증 필요 (2026-07-15, 사용자 승인)**: `SUBSCRIPTION.md` 갱신으로 위 "완료 기준 추가" 3개 불변식이 신규 반영됨. 현재 구현(`activate()`/`suspend()`/`cancel()`)은 어떤 가드도 없이 필드를 덮어쓰는 구조라 세 불변식 모두 미반영(코드 확인 완료). 재검증 방법: 재구현(세 메서드에 가드 추가) + 신규 예외 케이스 테스트(`SubscriptionTest`) 추가. 착수 전 SUB-02~SUB-05가 이 메서드들을 단일 호출로만 사용해 정상 흐름에서는 예외가 발생하지 않음을 재확인 완료(가드 추가만으로 회귀 없음).
 
+**재검증 완료 (2026-07-15)**:
+- 테스트: `SubscriptionTest.java`에 신규 불변식 검증 7종 추가(`givenAlreadyActivatedSubscription_whenActivateAgain_thenThrowsException` 등, activate/suspend/cancel 각각의 중복 호출·활성화 전 호출·정지·취소 상호배타 케이스).
+- 구현: `Subscription.java`의 `activate()`/`suspend()`/`cancel()`에 기존 private 헬퍼(`isActivated()`/`isSuspended()`/`isCancelled()`)를 재사용한 가드 추가, 위반 시 기존 `SubscriptionException` 발생(신규 예외 클래스 도입 없음).
+- 리뷰: 1차 blocker 1건 — `SubscriptionService.cancelSubscription()`의 환불 대상 취소 흐름(유료+14일 이내)에서, 동기 이벤트 처리로 `PaymentAdapter`가 같은 트랜잭션·같은 영속성 컨텍스트에서 동일 `Subscription` 인스턴스에 `suspend()`를 호출한 뒤, `cancelSubscription()`이 이어서 같은 인스턴스에 `cancel()`을 호출해 새 "정지·취소 상호배타" 가드에 걸려 예외가 발생함을 확인. **판정(사용자 확인, 2026-07-15)**: 이는 SUB-01의 결함이 아니라, 새 도메인 규칙("회원이 구독권을 취소하는 경우 — 환불 정책 만족 시 환불+즉시 정지, `cancel()` 호출 안 함")이 이미 명시한 대로 SUB-04에서 고쳐야 할 로직이 새 불변식에 의해 드러난 것으로 판단 — SUB-01 범위(대상 파일: `Subscription.java`)를 넘어서는 수정이라 이 작업에서 처리하지 않음. **알려진 임시 회귀 (SUB-04 완료 전까지)**: `POST /api/subscriptions/{id}/cancel`을 유료+환불기간 이내 구독권에 호출하면 `SubscriptionException`이 발생한다(정상 케이스가 예외로 깨짐) — SUB-04 재작업 완료 시 해소 예정, 사용자 확인 후 SUB-01을 완료 처리하고 SUB-04에 바로 착수하기로 함.
+- 리뷰 2차: 위 항목을 "SUB-01 범위 밖, SUB-04에서 해결"로 확정한 뒤 그 외 지적 없음 — 가드 로직·테스트 네이밍(BDD)·PMD 위반 모두 통과.
+- 테스트 실행: `SubscriptionTest` 33/33 PASS(신규 7종 포함), 전체 테스트 PASS, PMD 위반 0건.
+- 완료 근거: 리뷰 승인(알려진 범위 밖 이슈 1건은 SUB-04로 이관, 사용자 확인) + 테스트 33/33 통과 + PMD 0건 + 사용자 확인(2026-07-15).
+
 ---
 
 ## [SUB-02] Payment 애그리거트를 요청 리스트 구조로 재설계

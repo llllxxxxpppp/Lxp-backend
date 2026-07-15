@@ -138,17 +138,49 @@ public class Subscription {
                 .truncatedTo(ChronoUnit.DAYS);
     }
 
+    /**
+     * 구독권을 활성화한다. 이미 활성화된 구독권을 다시 활성화하는 것은 허용하지 않는다.
+     */
     public void activate() {
+        if (isActivated()) {
+            throw new SubscriptionException("이미 활성화된 구독권입니다.");
+        }
         activatedAt = OffsetDateTime.now();
         updatedAt = OffsetDateTime.now();
     }
 
+    /**
+     * 구독권을 정지한다. 활성화되지 않았거나, 이미 정지되었거나, 이미 취소된 구독권은
+     * 정지할 수 없다(정지와 취소는 상호배타 상태이다).
+     */
     public void suspend() {
+        if (!isActivated()) {
+            throw new SubscriptionException("활성화되지 않은 구독권은 정지할 수 없습니다.");
+        }
+        if (isSuspended()) {
+            throw new SubscriptionException("이미 정지된 구독권입니다.");
+        }
+        if (isCancelled()) {
+            throw new SubscriptionException("취소된 구독권은 정지할 수 없습니다.");
+        }
         suspendedAt = OffsetDateTime.now();
         updatedAt = OffsetDateTime.now();
     }
 
+    /**
+     * 구독권을 취소한다. 활성화되지 않았거나, 이미 취소되었거나, 이미 정지된 구독권은
+     * 취소할 수 없다(정지와 취소는 상호배타 상태이다).
+     */
     public void cancel() {
+        if (!isActivated()) {
+            throw new SubscriptionException("활성화되지 않은 구독권은 취소할 수 없습니다.");
+        }
+        if (isCancelled()) {
+            throw new SubscriptionException("이미 취소된 구독권입니다.");
+        }
+        if (isSuspended()) {
+            throw new SubscriptionException("정지된 구독권은 취소할 수 없습니다.");
+        }
         cancelledAt = OffsetDateTime.now();
         updatedAt = OffsetDateTime.now();
     }

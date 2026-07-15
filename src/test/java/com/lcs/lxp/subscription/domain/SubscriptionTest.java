@@ -1,5 +1,6 @@
 package com.lcs.lxp.subscription.domain;
 
+import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
 import com.lcs.lxp.subscription.domain.model.entity.Subscription;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -174,6 +175,70 @@ class SubscriptionTest {
         subscription.cancel();
 
         assertNotNull(subscription.getCancelledAt());
+    }
+
+    // -------------------------------------------------------------------------
+    // activate()/suspend()/cancel() 상태 전이 불변식 (SUB-01 재작업: 신규 불변식 3개)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("이미 활성화된 구독권에 activate()를 다시 호출하면 예외가 발생한다")
+    void givenAlreadyActivatedSubscription_whenActivateAgain_thenThrowsException() {
+        subscription.activate();
+
+        assertThrows(SubscriptionException.class, () -> subscription.activate());
+    }
+
+    @Test
+    @DisplayName("활성화되지 않은 구독권에 suspend()를 호출하면 예외가 발생한다")
+    void givenNotActivatedSubscription_whenSuspend_thenThrowsException() {
+        assertNull(subscription.getActivatedAt());
+
+        assertThrows(SubscriptionException.class, () -> subscription.suspend());
+    }
+
+    @Test
+    @DisplayName("이미 정지된 구독권에 suspend()를 다시 호출하면 예외가 발생한다")
+    void givenAlreadySuspendedSubscription_whenSuspendAgain_thenThrowsException() {
+        subscription.activate();
+        subscription.suspend();
+
+        assertThrows(SubscriptionException.class, () -> subscription.suspend());
+    }
+
+    @Test
+    @DisplayName("이미 취소된 구독권에 suspend()를 호출하면 예외가 발생한다 (정지·취소는 상호배타 상태이다)")
+    void givenAlreadyCancelledSubscription_whenSuspend_thenThrowsException() {
+        subscription.activate();
+        subscription.cancel();
+
+        assertThrows(SubscriptionException.class, () -> subscription.suspend());
+    }
+
+    @Test
+    @DisplayName("활성화되지 않은 구독권에 cancel()을 호출하면 예외가 발생한다")
+    void givenNotActivatedSubscription_whenCancel_thenThrowsException() {
+        assertNull(subscription.getActivatedAt());
+
+        assertThrows(SubscriptionException.class, () -> subscription.cancel());
+    }
+
+    @Test
+    @DisplayName("이미 취소된 구독권에 cancel()을 다시 호출하면 예외가 발생한다")
+    void givenAlreadyCancelledSubscription_whenCancelAgain_thenThrowsException() {
+        subscription.activate();
+        subscription.cancel();
+
+        assertThrows(SubscriptionException.class, () -> subscription.cancel());
+    }
+
+    @Test
+    @DisplayName("이미 정지된 구독권에 cancel()을 호출하면 예외가 발생한다 (정지·취소는 상호배타 상태이다)")
+    void givenAlreadySuspendedSubscription_whenCancel_thenThrowsException() {
+        subscription.activate();
+        subscription.suspend();
+
+        assertThrows(SubscriptionException.class, () -> subscription.cancel());
     }
 
     @Test
