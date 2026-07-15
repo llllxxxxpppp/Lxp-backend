@@ -8,6 +8,8 @@ import com.lcs.lxp.subscription.domain.model.entity.Subscription;
 import com.lcs.lxp.subscription.domain.model.vo.ResponseResult;
 import com.lcs.lxp.subscription.domain.repository.PaymentRepository;
 import com.lcs.lxp.subscription.domain.repository.SubscriptionRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +27,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class PaymentAdapter {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(PaymentAdapter.class);
+
     private final SubscriptionRepository subscriptionRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentGateway paymentGateway;
@@ -40,6 +44,8 @@ public class PaymentAdapter {
 
     @EventListener
     public void handlePaymentRequested(PaymentRequestedEvent event) {
+        logPaymentRequestedEvent("Handling event", event);
+
         Subscription subscription = findSubscription(event.getSubscriptionId());
         Payment payment = findPayment(event.getPaymentId());
 
@@ -54,10 +60,14 @@ public class PaymentAdapter {
             subscription.markPaymentResponded(event.getPaymentId(), ResponseResult.FAILED);
         }
         paymentRepository.save(payment);
+
+        logPaymentRequestedEvent("Handled event", event);
     }
 
     @EventListener
     public void handleRefundRequested(RefundRequestedEvent event) {
+        logRefundRequestedEvent("Handling event", event);
+
         Subscription subscription = findSubscription(event.getSubscriptionId());
         Payment payment = findPayment(event.getPaymentId());
 
@@ -72,6 +82,8 @@ public class PaymentAdapter {
             subscription.markPaymentResponded(event.getPaymentId(), ResponseResult.FAILED);
         }
         paymentRepository.save(payment);
+
+        logRefundRequestedEvent("Handled event", event);
     }
 
     private String idempotencyKeyOf(Payment payment) {
@@ -90,5 +102,29 @@ public class PaymentAdapter {
     private Payment findPayment(Long paymentId) {
         return paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new SubscriptionException("결제 요청을 찾을 수 없습니다."));
+    }
+
+    private void logPaymentRequestedEvent(String phase, PaymentRequestedEvent event) {
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("{}: type={}, eventId={}, occurredAt={}, subscriptionId={}, paymentId={}",
+                    phase,
+                    event.getClass().getSimpleName(),
+                    event.getEventId(),
+                    event.getOccurredAt(),
+                    event.getSubscriptionId(),
+                    event.getPaymentId());
+        }
+    }
+
+    private void logRefundRequestedEvent(String phase, RefundRequestedEvent event) {
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("{}: type={}, eventId={}, occurredAt={}, subscriptionId={}, paymentId={}",
+                    phase,
+                    event.getClass().getSimpleName(),
+                    event.getEventId(),
+                    event.getOccurredAt(),
+                    event.getSubscriptionId(),
+                    event.getPaymentId());
+        }
     }
 }

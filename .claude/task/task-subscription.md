@@ -146,9 +146,18 @@
 
 **대상 파일**: `domain/event/MemberRegisteredEventListener.java`(신규), `application/service/SubscriptionService.java`
 
-**의존성**: SUB-01, MEMBER-02(🟡 — `MemberRegisteredEvent` 발행 재구현 진행 중)
+**의존성**: SUB-01, MEMBER-02(🟢 완료 — `MemberRegisteredEvent` 발행 완료됨)
 
-**진행 기록**: (미착수)
+**설계 확정 (2026-07-14, 사용자 승인)**:
+- `MemberRegisteredEventListener`는 `@Component` + `@EventListener`로 `com.lcs.lxp.member.event.MemberRegisteredEvent`를 구독해 `subscriptionService.createSubscription(event.getMemberId(), 0L)`을 호출한다(0원 → `createSubscription`의 무료 분기가 이미 즉시 활성화까지 수행 — SUB-03에서 구현 완료).
+- 범위 확장: SUB-05 준비 중 `ARCHITECTURE.md`의 "이벤트 리스너는 처리 시작 전후에 이벤트 정보 모두를 info 레벨로 로그에 기록한다" 규칙이 SUB-03의 `PaymentAdapter` 리스너 2개에 누락되어 있음을 발견(마스터가 SUB-03 완료 기준 구성 시 이 규칙을 빠뜨림). 사용자 확인 결과 이번 SUB-05에 번들로 포함해 `PaymentAdapter`도 함께 로깅을 보완하기로 함(SUB-03 재검증/무효화 절차 대신, 기능적 결함이 아닌 로깅 보완이므로 진행 기록에만 남김). 대상 파일에 `infrastructure/PaymentAdapter.java` 추가.
+
+**완료 (2026-07-14)**:
+- 테스트: `MemberRegisteredEventListenerTest.java` 신규(서로 다른 memberId 2건, `createSubscription(memberId, 0L)` 위임 검증).
+- 구현: `MemberRegisteredEventListener` 신규(`@EventListener`로 `MemberRegisteredEvent` 구독, 처리 시작/종료 시 info 로그 기록 후 `createSubscription(memberId, 0L)` 호출). `PaymentAdapter`에 동일한 이벤트 리스너 로깅 규칙 보완(비즈니스 로직 변경 없음, 라인 단위 diff로 회귀 없음 확인).
+- 리뷰: 승인(minor 1건 — 로깅 헬퍼 코드 중복, 기능 영향 없어 기록만).
+- 테스트 실행: 전체 332/332 PASS(subscription 78개 포함), PMD 위반 0건, 전체 커버리지 89.4%, 타 BC(Member 67/Course 124/Security 63) 회귀 없음.
+- 완료 근거: 리뷰 승인 + 테스트 332/332 통과 + PMD 0건 + 사용자 확인(2026-07-14).
 
 ---
 
