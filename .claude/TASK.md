@@ -59,7 +59,7 @@
 | SUB-03 | 🟢 | 결제/환불 이벤트 기반 아키텍처 전환 | Subscription | - | SUB-02 |
 | SUB-04 | 🟢 | 구독권 조회/취소 API 정합성 조정 (수동 생성 API 제거, 환불 조건 복원) | Subscription | - | SUB-01, SUB-02 |
 | SUB-05 | 🟢 | 회원가입 이벤트 리스너(무료 구독권 자동 발급) | Subscription | - | SUB-01, MEMBER-02 |
-| SUB-06 | ⚪ | 회원 정지/탈퇴 이벤트 리스너(구독권 정지·환불) | Subscription | - | SUB-01, SUB-04, MEMBER-05, MEMBER-04 |
+| SUB-06 | 🟢 | 회원 정지/탈퇴 이벤트 리스너(구독권 정지·환불) | Subscription | - | SUB-01, SUB-04, MEMBER-05, MEMBER-04 |
 | SUB-07 | ⚪ | 만료 임박 구독권 자동 재발급 배치 | Subscription | - | SUB-01, SUB-03 |
 
 세부 내용은 `.claude/task/task-subscription.md` 참고.

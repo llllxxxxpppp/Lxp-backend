@@ -55,6 +55,7 @@ class SubscriptionServiceTest {
     private static final Long SUBSCRIPTION_ID = 1L;
     private static final Long FREE_SIBLING_SUBSCRIPTION_ID = 2L;
     private static final Long OTHER_PAID_SUBSCRIPTION_ID = 3L;
+    private static final Long FOURTH_SUBSCRIPTION_ID = 4L;
     private static final Long PAYMENT_ID = 100L;
 
     @Mock
@@ -276,6 +277,218 @@ class SubscriptionServiceTest {
                 () -> subscriptionService.cancelSubscription(OTHER_MEMBER_ID, SUBSCRIPTION_ID));
 
         assertNull(subscription.getCancelledAt());
+        verify(subscriptionRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // suspendActiveSubscriptions (SUB-06: 회원 정지 이벤트 처리 - 활성 구독권 전부 정지.
+    // 이미 정지/취소되었거나 아직 활성화되지 않은 구독권은 대상에서 제외해야 한다. 이 필터링이
+    // 누락되면 대상이 아닌 구독권에 suspend()가 호출되어 SUB-01의 상태 전이 불변식 위반으로
+    // 예외가 발생하며 테스트가 실패한다.)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("활성 구독권이 여러 개이면 모두 정지되고 각각 저장된다")
+    void givenMultipleActiveSubscriptions_whenSuspendActiveSubscriptions_thenAllAreSuspendedAndSaved() {
+        Subscription activeA = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(activeA, SUBSCRIPTION_ID);
+        activeA.activate();
+
+        Subscription activeB = Subscription.create(MEMBER_ID, FREE_PRICE);
+        setId(activeB, FREE_SIBLING_SUBSCRIPTION_ID);
+        activeB.activate();
+
+        when(subscriptionRepository.findByMemberId(MEMBER_ID)).thenReturn(List.of(activeA, activeB));
+        when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        subscriptionService.suspendActiveSubscriptions(MEMBER_ID);
+
+        assertNotNull(activeA.getSuspendedAt());
+        assertNotNull(activeB.getSuspendedAt());
+        verify(subscriptionRepository).save(activeA);
+        verify(subscriptionRepository).save(activeB);
+    }
+
+    @Test
+    @DisplayName("이미 정지/취소되었거나 아직 활성화되지 않은 구독권은 건드리지 않고 활성 구독권만 정지한다")
+    void givenAlreadySuspendedCancelledOrInactiveSubscriptions_whenSuspendActiveSubscriptions_thenOnlyEligibleSubscriptionIsSuspended() {
+        Subscription active = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(active, SUBSCRIPTION_ID);
+        active.activate();
+
+        Subscription alreadySuspended = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(alreadySuspended, FREE_SIBLING_SUBSCRIPTION_ID);
+        alreadySuspended.activate();
+        alreadySuspended.suspend();
+        OffsetDateTime suspendedAtBefore = alreadySuspended.getSuspendedAt();
+
+        Subscription alreadyCancelled = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(alreadyCancelled, OTHER_PAID_SUBSCRIPTION_ID);
+        alreadyCancelled.activate();
+        alreadyCancelled.cancel();
+
+        Subscription notYetActivated = Subscription.create(MEMBER_ID, FREE_PRICE);
+        setId(notYetActivated, FOURTH_SUBSCRIPTION_ID);
+
+        when(subscriptionRepository.findByMemberId(MEMBER_ID))
+                .thenReturn(List.of(active, alreadySuspended, alreadyCancelled, notYetActivated));
+        when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        subscriptionService.suspendActiveSubscriptions(MEMBER_ID);
+
+        assertNotNull(active.getSuspendedAt());
+        assertEquals(suspendedAtBefore, alreadySuspended.getSuspendedAt());
+        assertNull(alreadyCancelled.getSuspendedAt());
+        assertNull(notYetActivated.getSuspendedAt());
+
+        verify(subscriptionRepository).save(active);
+        verify(subscriptionRepository, never()).save(alreadySuspended);
+        verify(subscriptionRepository, never()).save(alreadyCancelled);
+        verify(subscriptionRepository, never()).save(notYetActivated);
+    }
+
+    @Test
+    @DisplayName("대상 활성 구독권이 없으면 아무 것도 저장하지 않는다")
+    void givenNoSubscriptionsForMember_whenSuspendActiveSubscriptions_thenNoSaveIsInvoked() {
+        when(subscriptionRepository.findByMemberId(MEMBER_ID)).thenReturn(List.of());
+
+        subscriptionService.suspendActiveSubscriptions(MEMBER_ID);
+
+        verify(subscriptionRepository, never()).save(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // processMemberWithdrawal (SUB-06: 회원 탈퇴 이벤트 처리 - 활성 구독권 전부 정지 + 환불
+    // 정책 통과 시 환불. 환불 대상 구독권은 직접 suspend()를 호출하지 않고 Payment(REFUND)
+    // 생성/addPayment/저장 후 RefundRequestedEvent만 발행한다(정지는 이후
+    // PaymentAdapter.handleRefundRequested()에서 처리됨 - SUB-04에서 이미 구현됨). 나머지
+    // 활성 구독권은 각각 suspend() 호출 후 저장한다.)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("유일한 유료 구독권이 활성/14일 이내이면 환불이 요청되고 직접 정지되지 않으며, 나머지 활성 구독권은 정지된다")
+    void givenSolePaidActiveSubscriptionWithinRefundPeriodAndOtherActiveSubscription_whenProcessMemberWithdrawal_thenRefundRequestedForPaidSubscriptionAndOthersSuspended() {
+        Subscription paidSubscription = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(paidSubscription, SUBSCRIPTION_ID);
+        ReflectionTestUtils.setField(paidSubscription, "activatedAt", OffsetDateTime.now().minusDays(1));
+
+        Subscription freeSubscription = Subscription.create(MEMBER_ID, FREE_PRICE);
+        setId(freeSubscription, FREE_SIBLING_SUBSCRIPTION_ID);
+        freeSubscription.activate();
+
+        when(subscriptionRepository.findByMemberId(MEMBER_ID))
+                .thenReturn(List.of(paidSubscription, freeSubscription));
+        when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> {
+            Subscription sub = invocation.getArgument(0);
+            for (Payment payment : sub.getPayments()) {
+                if (ReflectionTestUtils.getField(payment, "id") == null) {
+                    setId(payment, PAYMENT_ID);
+                }
+            }
+            return sub;
+        });
+
+        subscriptionService.processMemberWithdrawal(MEMBER_ID);
+
+        assertNull(paidSubscription.getSuspendedAt());
+        assertEquals(1, paidSubscription.getPayments().size());
+        Payment refundPayment = paidSubscription.getPayments().get(0);
+        assertEquals(RequestType.REFUND, refundPayment.getRequestType());
+        verify(subscriptionRepository).save(paidSubscription);
+
+        assertNotNull(freeSubscription.getSuspendedAt());
+        verify(subscriptionRepository).save(freeSubscription);
+
+        ArgumentCaptor<RefundRequestedEvent> eventCaptor = ArgumentCaptor.forClass(RefundRequestedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        RefundRequestedEvent event = eventCaptor.getValue();
+        assertEquals(SUBSCRIPTION_ID, event.getSubscriptionId());
+        assertEquals(PAYMENT_ID, event.getPaymentId());
+    }
+
+    @Test
+    @DisplayName("활성 구독권이 모두 무료이면 환불 이벤트 없이 활성 구독권 전부가 정지된다")
+    void givenOnlyFreeActiveSubscriptions_whenProcessMemberWithdrawal_thenAllSuspendedWithoutRefundEvent() {
+        Subscription freeA = Subscription.create(MEMBER_ID, FREE_PRICE);
+        setId(freeA, SUBSCRIPTION_ID);
+        freeA.activate();
+
+        Subscription freeB = Subscription.create(MEMBER_ID, FREE_PRICE);
+        setId(freeB, FREE_SIBLING_SUBSCRIPTION_ID);
+        freeB.activate();
+
+        when(subscriptionRepository.findByMemberId(MEMBER_ID)).thenReturn(List.of(freeA, freeB));
+        when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        subscriptionService.processMemberWithdrawal(MEMBER_ID);
+
+        assertNotNull(freeA.getSuspendedAt());
+        assertNotNull(freeB.getSuspendedAt());
+        verify(subscriptionRepository).save(freeA);
+        verify(subscriptionRepository).save(freeB);
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("활성 유료 구독권이 2개 이상이면 환불 이벤트 없이 활성 구독권 전부가 정지된다")
+    void givenTwoActivePaidSubscriptions_whenProcessMemberWithdrawal_thenAllSuspendedWithoutRefundEvent() {
+        Subscription paidA = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(paidA, SUBSCRIPTION_ID);
+        ReflectionTestUtils.setField(paidA, "activatedAt", OffsetDateTime.now().minusDays(1));
+
+        Subscription paidB = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(paidB, OTHER_PAID_SUBSCRIPTION_ID);
+        ReflectionTestUtils.setField(paidB, "activatedAt", OffsetDateTime.now().minusDays(1));
+
+        when(subscriptionRepository.findByMemberId(MEMBER_ID)).thenReturn(List.of(paidA, paidB));
+        when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        subscriptionService.processMemberWithdrawal(MEMBER_ID);
+
+        assertNotNull(paidA.getSuspendedAt());
+        assertNotNull(paidB.getSuspendedAt());
+        verify(subscriptionRepository).save(paidA);
+        verify(subscriptionRepository).save(paidB);
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("유일한 유료 구독권이더라도 활성화 후 14일이 지났으면 환불 없이 직접 정지된다")
+    void givenSolePaidActiveSubscriptionPastRefundPeriod_whenProcessMemberWithdrawal_thenSuspendedDirectlyWithoutRefundEvent() {
+        Subscription paidSubscription = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(paidSubscription, SUBSCRIPTION_ID);
+        ReflectionTestUtils.setField(paidSubscription, "activatedAt", OffsetDateTime.now().minusDays(15));
+
+        when(subscriptionRepository.findByMemberId(MEMBER_ID)).thenReturn(List.of(paidSubscription));
+        when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        subscriptionService.processMemberWithdrawal(MEMBER_ID);
+
+        assertNotNull(paidSubscription.getSuspendedAt());
+        assertEquals(0, paidSubscription.getPayments().size());
+        verify(subscriptionRepository).save(paidSubscription);
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("활성 구독권이 없으면 저장이나 이벤트 발행 없이 아무 것도 하지 않는다")
+    void givenNoActiveSubscriptionsForMember_whenProcessMemberWithdrawal_thenNoSaveOrEventInvoked() {
+        Subscription alreadySuspended = Subscription.create(MEMBER_ID, PAID_PRICE);
+        setId(alreadySuspended, SUBSCRIPTION_ID);
+        alreadySuspended.activate();
+        alreadySuspended.suspend();
+
+        Subscription alreadyCancelled = Subscription.create(MEMBER_ID, FREE_PRICE);
+        setId(alreadyCancelled, FREE_SIBLING_SUBSCRIPTION_ID);
+        alreadyCancelled.activate();
+        alreadyCancelled.cancel();
+
+        when(subscriptionRepository.findByMemberId(MEMBER_ID))
+                .thenReturn(List.of(alreadySuspended, alreadyCancelled));
+
+        subscriptionService.processMemberWithdrawal(MEMBER_ID);
+
         verify(subscriptionRepository, never()).save(any());
         verify(eventPublisher, never()).publishEvent(any());
     }

@@ -73,15 +73,62 @@ public class SubscriptionService {
         }
 
         if (isEligibleForRefund(subscription)) {
-            Payment refundPayment = Payment.create(RequestType.REFUND);
-            subscription.addPayment(refundPayment);
-            subscriptionRepository.save(subscription);
-            eventPublisher.publishEvent(
-                    new RefundRequestedEvent(subscription.getId(), refundPayment.getId().value()));
+            requestRefund(subscription);
         } else {
             subscription.cancel();
             subscriptionRepository.save(subscription);
         }
+    }
+
+    /**
+     * 대상 회원의 구독권 중 정지 대상(활성화됨 && 정지 안 됨 && 취소 안 됨)인 것 전부를
+     * 정지시킨 뒤 저장한다. 이미 정지/취소되었거나 아직 활성화되지 않은 구독권은 건드리지
+     * 않는다.
+     */
+    public void suspendActiveSubscriptions(Long memberId) {
+        List<Subscription> subscriptions = subscriptionRepository.findByMemberId(memberId);
+        for (Subscription subscription : subscriptions) {
+            if (isEligibleForSuspension(subscription)) {
+                subscription.suspend();
+                subscriptionRepository.save(subscription);
+            }
+        }
+    }
+
+    /**
+     * 회원 탈퇴 처리를 수행한다. 대상 회원의 활성 구독권 목록 중 환불 정책
+     * ({@link #isEligibleForRefund})을 만족하는 구독권이 있으면(정책상 최대 1개만 가능하다),
+     * 그 구독권은 직접 정지하지 않고 환불 요청만 수행한다(정지는 이후 환불 성공 응답을 수신하는
+     * 이벤트 리스너의 책임이다). 나머지 활성 구독권은 각각 정지시켜 저장한다. 환불 정책을
+     * 만족하는 구독권이 없으면 활성 구독권 전부를 정지시켜 저장한다.
+     */
+    public void processMemberWithdrawal(Long memberId) {
+        List<Subscription> activeSubscriptions = subscriptionRepository.findByMemberId(memberId).stream()
+                .filter(this::isEligibleForSuspension)
+                .toList();
+
+        for (Subscription subscription : activeSubscriptions) {
+            if (isEligibleForRefund(subscription)) {
+                requestRefund(subscription);
+            } else {
+                subscription.suspend();
+                subscriptionRepository.save(subscription);
+            }
+        }
+    }
+
+    private void requestRefund(Subscription subscription) {
+        Payment refundPayment = Payment.create(RequestType.REFUND);
+        subscription.addPayment(refundPayment);
+        subscriptionRepository.save(subscription);
+        eventPublisher.publishEvent(
+                new RefundRequestedEvent(subscription.getId(), refundPayment.getId().value()));
+    }
+
+    private boolean isEligibleForSuspension(Subscription subscription) {
+        return subscription.getActivatedAt() != null
+                && subscription.getSuspendedAt() == null
+                && subscription.getCancelledAt() == null;
     }
 
     /**

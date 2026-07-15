@@ -225,6 +225,15 @@
 
 **진행 기록**: (미착수) — `TASK.md`의 "Subscription BC: MemberSuspendedEvent/MemberWithdrawnEvent 리스너" 자리표시자를 2026-07-13 계획에서 SUB-06으로 구체화함(치환 근거: MEMBER-05, MEMBER-04 모두 🟢로 완료되어 의존성 충족). "회원 취소 이벤트" 표현의 재확인 필요 사항은 상단 참고(2026-07-15 해소). 2026-07-15: `SUBSCRIPTION.md` 갱신에 따라 완료 기준 전면 개정(취소 로직 삭제, 환불 정책 검사 추가) + 의존성에 SUB-04 추가, 상태를 🟠(연관작업대기)로 조정(SUB-01·SUB-04 재검증 완료 후 착수 가능).
 
+**설계 결정 (2026-07-15, 착수 시)**: "활성화된 모든 구독권 정지"와 "환불 정책 통과 시 환불"을 각각 독립적으로 구현하면, 환불 대상 구독권을 먼저 직접 `suspend()`한 뒤 환불 이벤트 처리(`PaymentAdapter`의 환불 성공 응답)가 또 `suspend()`를 호출해 SUB-01의 "중복 정지 금지" 불변식과 충돌한다(SUB-04에서 이미 겪은 것과 동일한 문제 패턴). 이를 피하기 위해 `processMemberWithdrawal`에서는 환불 정책을 만족하는 구독권(최대 1개, `isEligibleForRefund`의 "유료 구독권 정확히 1개" 조건상 자명)에 대해서는 직접 `suspend()`를 호출하지 않고 환불 이벤트만 발행하며, 나머지 활성 구독권만 직접 `suspend()`한다. 리뷰에서 이 설계가 실제로 지켜졌음을 코드 추적으로 확인함.
+
+**완료 (2026-07-15)**:
+- 테스트: `SubscriptionServiceTest.java`에 `suspendActiveSubscriptions`/`processMemberWithdrawal` 테스트 8종 추가(다수 활성 정지, 정지·취소·미활성 제외, 대상 없음, 환불정책 만족+타 활성 구독권 혼재, 전부 무료, 유료 2개 이상, 14일 경과, 활성 구독권 없음). `MemberSuspendedEventListenerTest.java`/`MemberWithdrawnEventListenerTest.java` 신규(각 2종, 이벤트→서비스 위임 검증).
+- 구현: `MemberSuspendedEventListener`/`MemberWithdrawnEventListener` 신규(`MemberRegisteredEventListener`와 동일한 로깅 컨벤션). `SubscriptionService`에 `suspendActiveSubscriptions(memberId)`(활성 구독권 전부 정지), `processMemberWithdrawal(memberId)`(활성 구독권 중 환불 정책 만족 항목은 `requestRefund`로, 나머지는 직접 `suspend()`) 추가. 기존 `cancelSubscription`의 환불 처리 로직을 `requestRefund` private 메서드로 추출해 재사용(동작·시그니처 불변, SUB-04 테스트 회귀 없음 확인).
+- 리뷰: 승인(PASS, minor 1건 — `processMemberWithdrawal`이 활성 구독권마다 `isEligibleForRefund` 내부에서 `findByMemberId`를 재호출하는 N+1 조회, 정확성에는 영향 없어 기록만).
+- 테스트 실행: `SubscriptionServiceTest` 18/18, `MemberSuspendedEventListenerTest` 2/2, `MemberWithdrawnEventListenerTest` 2/2 PASS(전체 PASS), PMD 위반 0건, 전체 커버리지 89%.
+- 완료 근거: 리뷰 승인 + 테스트 전체 통과 + PMD 0건 + 사용자 확인(2026-07-15).
+
 ---
 
 ## [SUB-07] 만료 임박 구독권 자동 재발급 배치
