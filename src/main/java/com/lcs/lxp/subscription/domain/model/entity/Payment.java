@@ -1,50 +1,55 @@
 package com.lcs.lxp.subscription.domain.model.entity;
 
-import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
-import com.lcs.lxp.subscription.domain.model.vo.PaymentFailureResponse;
 import com.lcs.lxp.subscription.domain.model.vo.PaymentId;
-import com.lcs.lxp.subscription.domain.model.vo.PaymentInfo;
-import com.lcs.lxp.subscription.domain.model.vo.PaymentStatus;
-import com.lcs.lxp.subscription.domain.model.vo.PaymentSuccessResponse;
-import com.lcs.lxp.subscription.domain.model.vo.RefundFailureResponse;
-import com.lcs.lxp.subscription.domain.model.vo.RefundInfo;
-import com.lcs.lxp.subscription.domain.model.vo.RefundSuccessResponse;
+import com.lcs.lxp.subscription.domain.model.vo.RequestId;
+import com.lcs.lxp.subscription.domain.model.vo.RequestIdConverter;
+import com.lcs.lxp.subscription.domain.model.vo.RequestType;
+import com.lcs.lxp.subscription.domain.model.vo.ResponseResult;
 import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
+/**
+ * 결제/환불 요청 애그리거트.
+ *
+ * <p>멱등키(RequestId)와 요청 타입(RequestType: PAYMENT/REFUND)은 생성 시 설정되는
+ * 불변 필드이며, 요청 전송 일시/응답 수신 일시/응답 결과(ResponseResult)는 가변 필드다.
+ * 상태 전이 검증과 같은 비즈니스 로직은 인프라스트럭처 레이어의 책임이며 이 엔티티는
+ * 데이터를 보관하고 요청/응답 사실을 기록하는 동작만 제공한다.
+ */
 @Entity
 @Table(name = "payments")
 public class Payment {
-
-    private static final String ALREADY_PROCESSED = "이미 처리된 결제입니다.";
-    private static final String ALREADY_REFUNDED = "이미 환불된 결제입니다.";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "subscription_id", nullable = false)
-    private Subscription subscription;
-
-    @Embedded
-    private PaymentInfo info;
+    @Convert(converter = RequestIdConverter.class)
+    @Column(name = "request_id", nullable = false, updatable = false, unique = true)
+    private RequestId requestId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PaymentStatus status;
+    @Column(name = "request_type", nullable = false, updatable = false)
+    private RequestType requestType;
+
+    @Column(name = "requested_at")
+    private OffsetDateTime requestedAt;
+
+    @Column(name = "responded_at")
+    private OffsetDateTime respondedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "response_result", nullable = false)
+    private ResponseResult responseResult;
 
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -54,12 +59,17 @@ public class Payment {
 
     protected Payment() {}
 
-    public static Payment create(Subscription subscription, PaymentInfo info) {
-        Objects.requireNonNull(subscription, "subscription은 null일 수 없습니다.");
+    /**
+     * 요청 타입을 입력받아 결제/환불 요청을 생성한다.
+     * 멱등키(RequestId)는 내부에서 UUIDv4로 자동 생성된다.
+     */
+    public static Payment create(RequestType requestType) {
+        Objects.requireNonNull(requestType, "requestType은 null일 수 없습니다.");
+
         Payment payment = new Payment();
-        payment.subscription = subscription;
-        payment.info = info;
-        payment.status = PaymentStatus.PAYMENT_NOT_REQUESTED;
+        payment.requestId = RequestId.generate();
+        payment.requestType = requestType;
+        payment.responseResult = ResponseResult.NOT_REQUESTED;
         payment.createdAt = OffsetDateTime.now();
         return payment;
     }
@@ -68,20 +78,24 @@ public class Payment {
         return new PaymentId(id);
     }
 
-    public PaymentStatus getStatus() {
-        return status;
+    public RequestId getRequestId() {
+        return requestId;
     }
 
-    public String getIdempotencyKey() {
-        return info.getIdempotencyKey();
+    public RequestType getRequestType() {
+        return requestType;
     }
 
-    public int getAmount() {
-        return info.getAmount();
+    public OffsetDateTime getRequestedAt() {
+        return requestedAt;
     }
 
-    public boolean isFree() {
-        return info.isFree();
+    public OffsetDateTime getRespondedAt() {
+        return respondedAt;
+    }
+
+    public ResponseResult getResponseResult() {
+        return responseResult;
     }
 
     public OffsetDateTime getCreatedAt() {
@@ -92,53 +106,18 @@ public class Payment {
         return updatedAt;
     }
 
-    public void requestPayment() {
-        status = PaymentStatus.PAYMENT_REQUESTED;
+    /** 외부 결제 시스템으로 요청을 전송한 사실을 기록한다. */
+    public void markRequested() {
+        requestedAt = OffsetDateTime.now();
         updatedAt = OffsetDateTime.now();
     }
 
-    public void handleSuccess(PaymentSuccessResponse response) {
-        Objects.requireNonNull(response, "결제 성공 응답은 null일 수 없습니다.");
-        if (status == PaymentStatus.PAYMENT_SUCCESS || status == PaymentStatus.PAYMENT_FAILED) {
-            throw new SubscriptionException(ALREADY_PROCESSED);
-        }
-        status = PaymentStatus.PAYMENT_SUCCESS;
-        updatedAt = OffsetDateTime.now();
-    }
+    /** 외부 결제 시스템으로부터 응답을 수신한 사실을 기록한다. */
+    public void markResponded(ResponseResult result) {
+        Objects.requireNonNull(result, "응답 결과는 null일 수 없습니다.");
 
-    public void handleFailure(PaymentFailureResponse response) {
-        Objects.requireNonNull(response, "결제 실패 응답은 null일 수 없습니다.");
-        if (status == PaymentStatus.PAYMENT_SUCCESS || status == PaymentStatus.PAYMENT_FAILED) {
-            throw new SubscriptionException(ALREADY_PROCESSED);
-        }
-        status = PaymentStatus.PAYMENT_FAILED;
-        updatedAt = OffsetDateTime.now();
-    }
-
-    public void requestRefund(RefundInfo refundInfo) {
-        Objects.requireNonNull(refundInfo, "환불 정보는 null일 수 없습니다.");
-        if (status != PaymentStatus.PAYMENT_SUCCESS) {
-            throw new SubscriptionException("결제 성공 상태에서만 환불을 요청할 수 있습니다.");
-        }
-        status = PaymentStatus.REFUND_REQUESTED;
-        updatedAt = OffsetDateTime.now();
-    }
-
-    public void handleRefundSuccess(RefundSuccessResponse response) {
-        Objects.requireNonNull(response, "환불 성공 응답은 null일 수 없습니다.");
-        if (status == PaymentStatus.REFUND_SUCCESS) {
-            throw new SubscriptionException(ALREADY_REFUNDED);
-        }
-        status = PaymentStatus.REFUND_SUCCESS;
-        updatedAt = OffsetDateTime.now();
-    }
-
-    public void handleRefundFailure(RefundFailureResponse response) {
-        Objects.requireNonNull(response, "환불 실패 응답은 null일 수 없습니다.");
-        if (status == PaymentStatus.REFUND_SUCCESS) {
-            throw new SubscriptionException(ALREADY_REFUNDED);
-        }
-        status = PaymentStatus.REFUND_FAILED;
+        respondedAt = OffsetDateTime.now();
+        responseResult = result;
         updatedAt = OffsetDateTime.now();
     }
 }

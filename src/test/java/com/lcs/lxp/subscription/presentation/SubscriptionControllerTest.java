@@ -18,6 +18,7 @@ import java.time.OffsetDateTime;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -25,6 +26,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * SUB-04: 구독권 조회/취소 API 정합성 조정 검증.
+ *
+ * <p>도메인 문서상 근거가 없는 수동 생성({@code POST /api/subscriptions})과, 대응 서비스
+ * 메서드가 이미 제거된 재발급({@code POST /api/subscriptions/reissue}) 엔드포인트는
+ * 컨트롤러에서 제거되었으므로 이 테스트에서 다루지 않는다. 컨트롤러에는 조회와 취소
+ * 엔드포인트만 남는다.
+ */
 @WebMvcTest(SubscriptionController.class)
 class SubscriptionControllerTest {
 
@@ -41,36 +50,13 @@ class SubscriptionControllerTest {
     private SubscriptionService subscriptionService;
 
     private SubscriptionResponse sampleResponse() {
-        return new SubscriptionResponse(1L, 1L, "ACTIVE", OffsetDateTime.now(), OffsetDateTime.now().plusDays(31), OffsetDateTime.now());
+        OffsetDateTime now = OffsetDateTime.now();
+        return new SubscriptionResponse(1L, 1L, 0L, 1L, now, now.plusDays(31), now, null, null, now);
     }
 
-    @Test
-    @WithMockUser(username = "1")
-    @DisplayName("구독권 생성 요청이 성공하면 201과 구독권 정보를 반환한다")
-    void givenAuthenticatedUser_whenCreateSubscription_thenReturns201() throws Exception {
-        when(subscriptionService.createSubscription(1L)).thenReturn(sampleResponse());
-
-        mockMvc.perform(post("/api/subscriptions").with(csrf()))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.subscriptionId").value(1L))
-                .andExpect(jsonPath("$.status").value("ACTIVE"));
-
-        verify(subscriptionService).createSubscription(1L);
-    }
-
-    @Test
-    @WithMockUser(username = "1")
-    @DisplayName("구독권 생성 시 서비스에서 예외가 발생하면 400을 반환한다")
-    void givenServiceException_whenCreateSubscription_thenReturns400() throws Exception {
-        doThrow(new SubscriptionException("이미 활성 구독권이 있습니다."))
-                .when(subscriptionService).createSubscription(anyLong());
-
-        mockMvc.perform(post("/api/subscriptions").with(csrf()))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("이미 활성 구독권이 있습니다."));
-
-        verify(subscriptionService).createSubscription(anyLong());
-    }
+    // -------------------------------------------------------------------------
+    // get
+    // -------------------------------------------------------------------------
 
     @Test
     @WithMockUser
@@ -100,6 +86,10 @@ class SubscriptionControllerTest {
         verify(subscriptionService).getSubscriptionInfo(999L);
     }
 
+    // -------------------------------------------------------------------------
+    // cancel
+    // -------------------------------------------------------------------------
+
     @Test
     @WithMockUser(username = "1")
     @DisplayName("구독권 취소 요청이 성공하면 200을 반환한다")
@@ -124,27 +114,29 @@ class SubscriptionControllerTest {
         verify(subscriptionService).cancelSubscription(anyLong(), anyLong());
     }
 
-    @Test
-    @WithMockUser
-    @DisplayName("재발급 요청이 성공하면 200을 반환한다")
-    void givenValidRequest_whenReissue_thenReturns200() throws Exception {
-        mockMvc.perform(post("/api/subscriptions/reissue").with(csrf()))
-                .andExpect(status().isOk());
+    // -------------------------------------------------------------------------
+    // 제거된 엔드포인트 회귀 방지 (수동 생성 / 재발급)
+    // -------------------------------------------------------------------------
 
-        verify(subscriptionService).reissueExpiring();
+    @Test
+    @WithMockUser(username = "1")
+    @DisplayName("수동 생성 엔드포인트(POST /api/subscriptions)는 더 이상 존재하지 않으므로 404를 반환한다")
+    void givenManualCreateEndpointRemoved_whenPostSubscriptions_thenReturns404() throws Exception {
+        mockMvc.perform(post("/api/subscriptions").with(csrf()))
+                .andExpect(status().isNotFound());
+
+        verifyNoInteractions(subscriptionService);
     }
 
     @Test
-    @WithMockUser
-    @DisplayName("재발급 시 서비스에서 예외가 발생하면 400을 반환한다")
-    void givenServiceException_whenReissue_thenReturns400() throws Exception {
-        doThrow(new SubscriptionException("재발급 처리 중 오류가 발생했습니다."))
-                .when(subscriptionService).reissueExpiring();
-
+    @WithMockUser(username = "1")
+    @DisplayName("재발급 엔드포인트(POST /api/subscriptions/reissue)는 더 이상 존재하지 않으므로 405를 반환한다"
+            + " (경로 자체는 GET /api/subscriptions/{subscriptionId}의 subscriptionId=\"reissue\"로 매치되지만"
+            + " 이 경로에 POST를 지원하는 핸들러가 없어 Spring MVC가 404 대신 405를 반환한다)")
+    void givenReissueEndpointRemoved_whenPostReissue_thenReturns405() throws Exception {
         mockMvc.perform(post("/api/subscriptions/reissue").with(csrf()))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("재발급 처리 중 오류가 발생했습니다."));
+                .andExpect(status().isMethodNotAllowed());
 
-        verify(subscriptionService).reissueExpiring();
+        verifyNoInteractions(subscriptionService);
     }
 }

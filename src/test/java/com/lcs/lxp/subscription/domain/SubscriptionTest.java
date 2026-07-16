@@ -1,19 +1,15 @@
 package com.lcs.lxp.subscription.domain;
 
 import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
-import com.lcs.lxp.subscription.domain.model.entity.Payment;
 import com.lcs.lxp.subscription.domain.model.entity.Subscription;
-import com.lcs.lxp.subscription.domain.model.vo.PaymentFailureResponse;
-import com.lcs.lxp.subscription.domain.model.vo.PaymentId;
-import com.lcs.lxp.subscription.domain.model.vo.PaymentInfo;
-import com.lcs.lxp.subscription.domain.model.vo.PaymentSuccessResponse;
-import com.lcs.lxp.subscription.domain.model.vo.SubscriptionStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,177 +18,351 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * SUB-01: 구독권 애그리거트 재설계 검증.
+ *
+ * <p>상태를 단일 enum이 아닌 활성화/정지/취소 각각의 nullable 일시로 표현하고,
+ * 부모 구독권 ID / 구독 시작 일시 / 구독 회차 / reissue() 재발급 체인 / 달력 월 기준
+ * 유효기간 계산법을 검증한다. 결제/환불 요청 내역(리스트)은 SUB-02 범위이므로
+ * 이 테스트에는 포함하지 않는다.
+ */
 class SubscriptionTest {
+
+    private static final Long MEMBER_ID = 1L;
+    private static final Long PAID_PRICE = 19_800L;
 
     private Subscription subscription;
 
     @BeforeEach
     void setUp() {
-        subscription = Subscription.create(1L);
+        subscription = Subscription.create(MEMBER_ID, PAID_PRICE);
     }
 
     @Test
-    @DisplayName("구독권을 생성하면 비활성 상태이고 31일 뒤에 만료된다")
-    void givenMemberId_whenCreate_thenStatusIsInactiveAndExpiresIn31Days() {
-        assertEquals(SubscriptionStatus.INACTIVE, subscription.getStatus());
-        assertNotNull(subscription.getCreatedAt());
+    @DisplayName("회원 ID와 가격으로 생성하면 부모 구독권 ID는 0, 구독 회차는 1, 구독 시작 일시는 생성 시점으로 설정된다")
+    void givenMemberIdAndPrice_whenCreate_thenRootChainDefaultsAreSet() {
+        OffsetDateTime beforeCreate = OffsetDateTime.now();
+
+        Subscription created = Subscription.create(MEMBER_ID, PAID_PRICE);
+
+        OffsetDateTime afterCreate = OffsetDateTime.now();
+
+        assertEquals(0L, created.getParentId().longValue());
+        assertEquals(1L, created.getGeneration().longValue());
+        assertNotNull(created.getSubscriptionStartAt());
+        assertFalse(created.getSubscriptionStartAt().isBefore(beforeCreate));
+        assertFalse(created.getSubscriptionStartAt().isAfter(afterCreate));
+        assertEquals(MEMBER_ID.longValue(), created.getMemberId().longValue());
+        assertEquals(PAID_PRICE.longValue(), created.getPrice().longValue());
+    }
+
+    @Test
+    @DisplayName("구독권을 생성하면 활성화/정지/취소 일시는 모두 NULL이고, 생성 일시는 채워지며 수정 일시는 NULL이다")
+    void givenNewSubscription_whenCreate_thenLifecycleTimestampsAreNullAndAuditFieldsAreSet() {
         assertNull(subscription.getActivatedAt());
-        assertTrue(subscription.getExpiresAt().isAfter(subscription.getCreatedAt().plusDays(30)));
+        assertNull(subscription.getSuspendedAt());
+        assertNull(subscription.getCancelledAt());
+        assertNotNull(subscription.getCreatedAt());
+        assertNull(subscription.getUpdatedAt());
     }
 
     @Test
-    @DisplayName("비활성 구독권을 활성화하면 상태가 ACTIVE가 되고 activatedAt이 설정된다")
-    void givenInactiveSubscription_whenActivate_thenStatusIsActiveAndActivatedAtIsSet() {
+    @DisplayName("소유 회원 ID가 NULL이면 구독권을 생성할 수 없다")
+    void givenNullMemberId_whenCreate_thenThrowsException() {
+        assertThrows(NullPointerException.class, () -> Subscription.create(null, PAID_PRICE));
+    }
+
+    @Test
+    @DisplayName("가격이 NULL이면 구독권을 생성할 수 없다")
+    void givenNullPrice_whenCreate_thenThrowsException() {
+        assertThrows(NullPointerException.class, () -> Subscription.create(MEMBER_ID, null));
+    }
+
+    @Test
+    @DisplayName("구독권 생성 후 활성화를 하더라도 가격과 소유 회원 ID는 변하지 않는다 (불변 필드)")
+    void givenCreatedSubscription_whenActivate_thenPriceAndMemberIdRemainUnchanged() {
         subscription.activate();
 
-        assertEquals(SubscriptionStatus.ACTIVE, subscription.getStatus());
-        assertNotNull(subscription.getActivatedAt());
-        assertNotNull(subscription.getUpdatedAt());
+        assertEquals(PAID_PRICE.longValue(), subscription.getPrice().longValue());
+        assertEquals(MEMBER_ID.longValue(), subscription.getMemberId().longValue());
     }
 
     @Test
-    @DisplayName("비활성 상태가 아닌 구독권을 활성화하면 예외가 발생한다")
-    void givenNonInactiveSubscription_whenActivate_thenThrowsException() {
+    @DisplayName("구독 시작 일시와 구독 회차로 계산한 유효기간은 (시작 일시).plusMonths(회차).plusDays(1).truncatedTo(DAYS) 와 같다")
+    void givenSubscriptionStartAtAndGeneration_whenCreate_thenValidUntilMatchesCalculationFormula() {
+        OffsetDateTime expected = subscription.getSubscriptionStartAt()
+                .plusMonths(subscription.getGeneration())
+                .plusDays(1)
+                .truncatedTo(ChronoUnit.DAYS);
+
+        assertEquals(expected, subscription.getValidUntil());
+    }
+
+    @Test
+    @DisplayName("구독 시작일에 회차만큼의 달을 더한 날짜가 존재하지 않으면(예: 12/31 + 2개월) 해당 월의 마지막 날로 계산되어 다음날 00시가 유효기간이 된다")
+    void givenStartDateWithNoMatchingDayInTargetMonth_whenReissue_thenValidUntilClampsToLastDayOfMonth() {
+        OffsetDateTime endOfDecember = OffsetDateTime.of(2026, 12, 31, 9, 0, 0, 0, ZoneOffset.UTC);
+        ReflectionTestUtils.setField(subscription, "subscriptionStartAt", endOfDecember);
+
+        // original generation(1) + 1 = 2, so target month = December + 2 = February(non-leap 2027, 28 days)
+        Subscription reissued = subscription.reissue(PAID_PRICE);
+
+        OffsetDateTime expected = OffsetDateTime.of(2027, 3, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+        assertEquals(expected, reissued.getValidUntil());
+    }
+
+    @Test
+    @DisplayName("reissue()를 호출하면 회차는 원본+1, 부모 ID는 원본 id, 구독 시작 일시와 소유 회원 ID는 원본에서 복사, 가격은 새로 입력받은 값으로 저장된다")
+    void givenOriginalSubscription_whenReissue_thenChainFieldsAreCopiedAndPriceIsRecalculated() {
+        ReflectionTestUtils.setField(subscription, "id", 100L);
+        OffsetDateTime originalStartAt = subscription.getSubscriptionStartAt();
+        Long newPrice = 9_900L;
+
+        Subscription reissued = subscription.reissue(newPrice);
+
+        assertEquals(2L, reissued.getGeneration().longValue());
+        assertEquals(100L, reissued.getParentId().longValue());
+        assertEquals(originalStartAt, reissued.getSubscriptionStartAt());
+        assertEquals(MEMBER_ID.longValue(), reissued.getMemberId().longValue());
+        assertEquals(newPrice.longValue(), reissued.getPrice().longValue());
+        OffsetDateTime expectedValidUntil = reissued.getSubscriptionStartAt()
+                .plusMonths(reissued.getGeneration())
+                .plusDays(1)
+                .truncatedTo(ChronoUnit.DAYS);
+        assertEquals(expectedValidUntil, reissued.getValidUntil());
+    }
+
+    @Test
+    @DisplayName("reissue()로 생성된 구독권은 활성화/정지/취소 일시가 NULL이고 수정 일시도 NULL인 기본 상태로 시작한다")
+    void givenOriginalSubscription_whenReissue_thenLifecycleFieldsResetToDefaults() {
+        subscription.activate();
+
+        Subscription reissued = subscription.reissue(PAID_PRICE);
+
+        assertNull(reissued.getActivatedAt());
+        assertNull(reissued.getSuspendedAt());
+        assertNull(reissued.getCancelledAt());
+        assertNotNull(reissued.getCreatedAt());
+        assertNull(reissued.getUpdatedAt());
+    }
+
+    @Test
+    @DisplayName("activate()를 호출하면 활성화 일시가 채워지고 수정 일시도 갱신되지만 정지/취소 일시는 그대로 NULL이다")
+    void givenNewSubscription_whenActivate_thenOnlyActivatedAtAndUpdatedAtAreSet() {
+        subscription.activate();
+
+        assertNotNull(subscription.getActivatedAt());
+        assertNotNull(subscription.getUpdatedAt());
+        assertNull(subscription.getSuspendedAt());
+        assertNull(subscription.getCancelledAt());
+    }
+
+    @Test
+    @DisplayName("suspend()를 호출하면 정지 일시가 채워진다")
+    void givenActivatedSubscription_whenSuspend_thenSuspendedAtIsSet() {
+        subscription.activate();
+
+        subscription.suspend();
+
+        assertNotNull(subscription.getSuspendedAt());
+    }
+
+    @Test
+    @DisplayName("cancel()을 호출하면 취소 일시가 채워진다")
+    void givenActivatedSubscription_whenCancel_thenCancelledAtIsSet() {
+        subscription.activate();
+
+        subscription.cancel();
+
+        assertNotNull(subscription.getCancelledAt());
+    }
+
+    // -------------------------------------------------------------------------
+    // activate()/suspend()/cancel() 상태 전이 불변식 (SUB-01 재작업: 신규 불변식 3개)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("이미 활성화된 구독권에 activate()를 다시 호출하면 예외가 발생한다")
+    void givenAlreadyActivatedSubscription_whenActivateAgain_thenThrowsException() {
         subscription.activate();
 
         assertThrows(SubscriptionException.class, () -> subscription.activate());
     }
 
     @Test
-    @DisplayName("결제 성공 응답으로 활성화하면 상태가 ACTIVE가 되고 activatedAt에 승인 일시가 설정된다")
-    void givenInactiveSubscription_whenActivateByPayment_thenStatusIsActiveAndActivatedAtIsSet() {
-        Payment payment = Payment.create(subscription, new PaymentInfo("key", 9900));
-        payment.requestPayment();
-        subscription.assignPayment(payment);
-        OffsetDateTime approvedAt = OffsetDateTime.now();
-        PaymentSuccessResponse response = new PaymentSuccessResponse(new PaymentId(1L), approvedAt);
+    @DisplayName("활성화되지 않은 구독권에 suspend()를 호출하면 예외가 발생한다")
+    void givenNotActivatedSubscription_whenSuspend_thenThrowsException() {
+        assertNull(subscription.getActivatedAt());
 
-        subscription.activateByPayment(response);
-
-        assertEquals(SubscriptionStatus.ACTIVE, subscription.getStatus());
-        assertEquals(approvedAt, subscription.getActivatedAt());
-    }
-
-    @Test
-    @DisplayName("비활성 상태가 아닌 구독권에 결제 성공 처리하면 예외가 발생한다")
-    void givenNonInactiveSubscription_whenActivateByPayment_thenThrowsException() {
-        subscription.activate();
-        PaymentSuccessResponse response = new PaymentSuccessResponse(new PaymentId(1L), OffsetDateTime.now());
-
-        assertThrows(SubscriptionException.class, () -> subscription.activateByPayment(response));
-    }
-
-    @Test
-    @DisplayName("결제 실패 처리 시 상태가 PAYMENT_FAILED가 된다")
-    void givenInactiveSubscription_whenMarkPaymentFailed_thenStatusIsPaymentFailed() {
-        Payment payment = Payment.create(subscription, new PaymentInfo("key", 9900));
-        payment.requestPayment();
-        subscription.assignPayment(payment);
-        PaymentFailureResponse response = new PaymentFailureResponse(new PaymentId(1L), "잔액 부족", OffsetDateTime.now());
-
-        subscription.markPaymentFailed(response);
-
-        assertEquals(SubscriptionStatus.PAYMENT_FAILED, subscription.getStatus());
-        assertNotNull(subscription.getUpdatedAt());
-    }
-
-    @Test
-    @DisplayName("비활성 상태가 아닌 구독권에 결제 실패 처리하면 예외가 발생한다")
-    void givenNonInactiveSubscription_whenMarkPaymentFailed_thenThrowsException() {
-        subscription.activate();
-        PaymentFailureResponse response = new PaymentFailureResponse(new PaymentId(1L), "잔액 부족", OffsetDateTime.now());
-
-        assertThrows(SubscriptionException.class, () -> subscription.markPaymentFailed(response));
-    }
-
-    @Test
-    @DisplayName("활성 구독권을 취소하면 상태가 CANCELLED가 된다")
-    void givenActiveSubscription_whenCancel_thenStatusIsCancelled() {
-        subscription.activate();
-
-        subscription.cancel();
-
-        assertEquals(SubscriptionStatus.CANCELLED, subscription.getStatus());
-    }
-
-    @Test
-    @DisplayName("활성 상태가 아닌 구독권을 취소하면 예외가 발생한다")
-    void givenNonActiveSubscription_whenCancel_thenThrowsException() {
-        assertThrows(SubscriptionException.class, () -> subscription.cancel());
-    }
-
-    @Test
-    @DisplayName("활성 구독권을 정지하면 상태가 SUSPENDED가 된다")
-    void givenActiveSubscription_whenSuspend_thenStatusIsSuspended() {
-        subscription.activate();
-
-        subscription.suspend();
-
-        assertEquals(SubscriptionStatus.SUSPENDED, subscription.getStatus());
-    }
-
-    @Test
-    @DisplayName("활성 상태가 아닌 구독권을 정지하면 예외가 발생한다")
-    void givenNonActiveSubscription_whenSuspend_thenThrowsException() {
         assertThrows(SubscriptionException.class, () -> subscription.suspend());
     }
 
     @Test
-    @DisplayName("구독권을 폐기하면 상태가 DISCARDED가 된다")
-    void givenActiveSubscription_whenDiscard_thenStatusIsDiscarded() {
+    @DisplayName("이미 정지된 구독권에 suspend()를 다시 호출하면 예외가 발생한다")
+    void givenAlreadySuspendedSubscription_whenSuspendAgain_thenThrowsException() {
         subscription.activate();
+        subscription.suspend();
 
-        subscription.discard();
-
-        assertEquals(SubscriptionStatus.DISCARDED, subscription.getStatus());
+        assertThrows(SubscriptionException.class, () -> subscription.suspend());
     }
 
     @Test
-    @DisplayName("활성 상태이고 만료 전인 구독권은 유효하다")
-    void givenActiveSubscriptionBeforeExpiry_whenIsValid_thenReturnsTrue() {
+    @DisplayName("이미 취소된 구독권에 suspend()를 호출하면 예외가 발생한다 (정지·취소는 상호배타 상태이다)")
+    void givenAlreadyCancelledSubscription_whenSuspend_thenThrowsException() {
+        subscription.activate();
+        subscription.cancel();
+
+        assertThrows(SubscriptionException.class, () -> subscription.suspend());
+    }
+
+    @Test
+    @DisplayName("활성화되지 않은 구독권에 cancel()을 호출하면 예외가 발생한다")
+    void givenNotActivatedSubscription_whenCancel_thenThrowsException() {
+        assertNull(subscription.getActivatedAt());
+
+        assertThrows(SubscriptionException.class, () -> subscription.cancel());
+    }
+
+    @Test
+    @DisplayName("이미 취소된 구독권에 cancel()을 다시 호출하면 예외가 발생한다")
+    void givenAlreadyCancelledSubscription_whenCancelAgain_thenThrowsException() {
+        subscription.activate();
+        subscription.cancel();
+
+        assertThrows(SubscriptionException.class, () -> subscription.cancel());
+    }
+
+    @Test
+    @DisplayName("이미 정지된 구독권에 cancel()을 호출하면 예외가 발생한다 (정지·취소는 상호배타 상태이다)")
+    void givenAlreadySuspendedSubscription_whenCancel_thenThrowsException() {
+        subscription.activate();
+        subscription.suspend();
+
+        assertThrows(SubscriptionException.class, () -> subscription.cancel());
+    }
+
+    @Test
+    @DisplayName("활성화되지 않았으면 isValid()는 false이다")
+    void givenNotActivatedSubscription_whenIsValid_thenReturnsFalse() {
+        assertFalse(subscription.isValid());
+    }
+
+    @Test
+    @DisplayName("활성화되었고 정지되지 않았고 유효기간이 지나지 않았으면 isValid()는 true이다 (취소 여부 false)")
+    void givenActivatedNotSuspendedNotExpiredAndNotCancelled_whenIsValid_thenReturnsTrue() {
         subscription.activate();
 
         assertTrue(subscription.isValid());
     }
 
     @Test
-    @DisplayName("활성 상태이지만 만료된 구독권은 유효하지 않다")
-    void givenActiveSubscriptionAfterExpiry_whenIsValid_thenReturnsFalse() {
-        subscription.activate();
-        ReflectionTestUtils.setField(subscription, "expiresAt", OffsetDateTime.now().minusDays(1));
-
-        assertFalse(subscription.isValid());
-    }
-
-    @Test
-    @DisplayName("취소된 구독권은 유효하지 않다")
-    void givenCancelledSubscription_whenIsValid_thenReturnsFalse() {
+    @DisplayName("활성화되었고 정지되지 않았고 유효기간이 지나지 않았으면 취소되었더라도 isValid()는 true이다 (취소 여부는 무관)")
+    void givenActivatedNotSuspendedNotExpiredButCancelled_whenIsValid_thenReturnsTrue() {
         subscription.activate();
         subscription.cancel();
 
+        assertTrue(subscription.isValid());
+    }
+
+    @Test
+    @DisplayName("활성화되었지만 정지되었으면 isValid()는 false이다")
+    void givenActivatedAndSuspended_whenIsValid_thenReturnsFalse() {
+        subscription.activate();
+
+        subscription.suspend();
+
         assertFalse(subscription.isValid());
     }
 
     @Test
-    @DisplayName("활성화 후 14일 이내이면 환불 기간 내이다")
-    void givenActivatedWithin14Days_whenIsWithinRefundPeriod_thenReturnsTrue() {
+    @DisplayName("활성화되었지만 유효기간이 지났으면 isValid()는 false이다")
+    void givenActivatedButExpired_whenIsValid_thenReturnsFalse() {
         subscription.activate();
+        ReflectionTestUtils.setField(subscription, "validUntil", OffsetDateTime.now().minusDays(1));
 
-        assertTrue(subscription.isWithinRefundPeriod());
+        assertFalse(subscription.isValid());
     }
 
     @Test
-    @DisplayName("활성화 후 14일이 초과되면 환불 기간이 아니다")
-    void givenActivatedOver14DaysAgo_whenIsWithinRefundPeriod_thenReturnsFalse() {
+    @DisplayName("활성화되지 않았으면 유효기간이 임박해도 isEligibleForReissue()는 false이다")
+    void givenNotActivatedSubscription_whenIsEligibleForReissue_thenReturnsFalse() {
+        ReflectionTestUtils.setField(subscription, "validUntil", OffsetDateTime.now().plusDays(1));
+
+        assertFalse(subscription.isEligibleForReissue());
+    }
+
+    @Test
+    @DisplayName("활성화, 정지 아님, 취소 아님이고 유효기간 만료 2일 이내이면 isEligibleForReissue()는 true이다")
+    void givenActivatedNotSuspendedNotCancelledAndNearExpiry_whenIsEligibleForReissue_thenReturnsTrue() {
         subscription.activate();
-        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(15));
+        ReflectionTestUtils.setField(subscription, "validUntil", OffsetDateTime.now().plusDays(1));
+
+        assertTrue(subscription.isEligibleForReissue());
+    }
+
+    @Test
+    @DisplayName("활성화, 정지 아님, 취소 아님이더라도 유효기간까지 아직 여유가 있으면 isEligibleForReissue()는 false이다")
+    void givenActivatedButFarFromExpiry_whenIsEligibleForReissue_thenReturnsFalse() {
+        subscription.activate();
+        ReflectionTestUtils.setField(subscription, "validUntil", OffsetDateTime.now().plusDays(10));
+
+        assertFalse(subscription.isEligibleForReissue());
+    }
+
+    @Test
+    @DisplayName("활성화, 정지 아님, 취소 아님이더라도 유효기간이 이미 한참 지났으면 isEligibleForReissue()는 false이다")
+    void givenActivatedButAlreadyExpiredLongAgo_whenIsEligibleForReissue_thenReturnsFalse() {
+        subscription.activate();
+        ReflectionTestUtils.setField(subscription, "validUntil", OffsetDateTime.now().minusDays(100));
+
+        assertFalse(subscription.isEligibleForReissue());
+    }
+
+    @Test
+    @DisplayName("정지된 구독권은 유효기간이 임박해도 isEligibleForReissue()는 false이다")
+    void givenSuspendedSubscriptionNearExpiry_whenIsEligibleForReissue_thenReturnsFalse() {
+        subscription.activate();
+        subscription.suspend();
+        ReflectionTestUtils.setField(subscription, "validUntil", OffsetDateTime.now().plusDays(1));
+
+        assertFalse(subscription.isEligibleForReissue());
+    }
+
+    @Test
+    @DisplayName("취소된 구독권은 유효기간이 임박해도 isEligibleForReissue()는 false이다")
+    void givenCancelledSubscriptionNearExpiry_whenIsEligibleForReissue_thenReturnsFalse() {
+        subscription.activate();
+        subscription.cancel();
+        ReflectionTestUtils.setField(subscription, "validUntil", OffsetDateTime.now().plusDays(1));
+
+        assertFalse(subscription.isEligibleForReissue());
+    }
+
+    // -------------------------------------------------------------------------
+    // isWithinRefundPeriod (SUB-04: 환불 조건 복원)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("활성화되지 않은(activatedAt이 NULL인) 구독권은 isWithinRefundPeriod()가 false이다")
+    void givenNotActivatedSubscription_whenIsWithinRefundPeriod_thenReturnsFalse() {
+        assertNull(subscription.getActivatedAt());
 
         assertFalse(subscription.isWithinRefundPeriod());
     }
 
     @Test
-    @DisplayName("활성화되지 않은 구독권은 환불 기간이 아니다")
-    void givenNotActivatedSubscription_whenIsWithinRefundPeriod_thenReturnsFalse() {
+    @DisplayName("활성화된 지 14일이 지나지 않았으면 isWithinRefundPeriod()는 true이다")
+    void givenActivatedWithin14Days_whenIsWithinRefundPeriod_thenReturnsTrue() {
+        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(1));
+
+        assertTrue(subscription.isWithinRefundPeriod());
+    }
+
+    @Test
+    @DisplayName("활성화된 지 14일이 지났으면 isWithinRefundPeriod()는 false이다")
+    void givenActivatedMoreThan14DaysAgo_whenIsWithinRefundPeriod_thenReturnsFalse() {
+        ReflectionTestUtils.setField(subscription, "activatedAt", OffsetDateTime.now().minusDays(15));
+
         assertFalse(subscription.isWithinRefundPeriod());
     }
 }
