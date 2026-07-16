@@ -40,17 +40,19 @@
 
 세부 내용은 `.claude/task/task-member.md` 참고.
 
-| COURSE-01 | ⚪ | 강좌/강의/미션 도메인 모델 (VO·엔티티·초기 상태) | Course | - | 없음 |
+| COURSE-01 | 🟢 | 강좌/강의/미션 도메인 모델 (VO·엔티티·초기 상태) | Course | - | 없음 |
 | COURSE-02 | 🟢 | 강좌 생성/수정/조회 API | Course | - | COURSE-01 |
 | COURSE-03 | 🟢 | 강좌 목록 페이지네이션·검색 | Course | - | COURSE-02 |
 | COURSE-04 | 🟢 | 강의/미션 추가 및 공개·비공개 API | Course | - | COURSE-01 |
-| COURSE-05 | ⚪ | 강의 자료 타입(확장자) 필드 도입 | Course | - | COURSE-01 |
-| COURSE-06a | ⚪ | 강좌/강의/미션 soft delete 모델 | Course | - | COURSE-01 |
-| COURSE-06b | ⚪ | 강좌/강의/미션 삭제 API | Course | - | COURSE-06a |
-| COURSE-07a | ⚪ | Sortable 인터페이스 + 순번 필드 | Course | - | COURSE-01 |
-| COURSE-07b | ⚪ | 강좌 단위 순서 변경 API | Course | - | COURSE-07a |
-| COURSE-08a | ⚪ | InstructorSuspendedEvent 리스너(정지 강사 강좌 비공개) | Course | - | MEMBER-03 |
-| COURSE-08b | ⚪ | 정지된 강사 2차 방어 인터셉터 | Course | - | COURSE-08a |
+| COURSE-05 | 🟢 | 강의 자료 타입(확장자) 필드 도입 | Course | - | COURSE-01 |
+| COURSE-06a | 🟢 | 강좌/강의/미션 soft delete 모델 | Course | - | COURSE-01 |
+| COURSE-06b | 🟢 | 강좌/강의/미션 삭제 API | Course | - | COURSE-06a |
+| COURSE-07a | 🟢 | Sortable 인터페이스 + 순번 필드 | Course | - | COURSE-01 |
+| COURSE-07b | 🟢 | 강좌 단위 순서 변경 API | Course | - | COURSE-07a |
+| COURSE-08a | 🟢 | InstructorSuspendedEvent 리스너(정지 강사 강좌 비공개) | Course | - | MEMBER-03 |
+| COURSE-08b | 🟢 | 정지된 강사 2차 방어 인터셉터 | Course | - | COURSE-08a |
+| COURSE-09 | 🟢 | 강좌/강의/미션 소유권(작성 강사 본인) 검증 전체 적용 | Course | - | 없음 |
+| COURSE-10 | 🟢 | 강의/미션 순서 보장 강화 및 물리 삭제 제거 | Course | - | COURSE-06a, COURSE-07a, COURSE-07b |
 
 세부 내용은 `.claude/task/task-course.md` 참고.
 
@@ -77,6 +79,13 @@
   - `security/*` 영역 → 사용자 확인(2026-07-13)으로 Security를 경량 BC로 등록하고 SEC-01~04로 구체화(위 요약표 참고).
   - `subscription/infrastructure`(23.3%, `DummyPaymentGateway` 등 결제 stub) → 사용자 확인(2026-07-13)으로 지금 별도 작업 등록하지 않음. SUB-03(결제/환불 이벤트 기반 아키텍처 전환) 계획 수립 시 이 stub이 재작성될 가능성이 높아 그때 함께 반영 제안할 것.
   - `member/service`의 `login()` 등 Member 자체 커버리지 공백은 이번에 작업으로 등록하지 않음(추후 필요 시 별도 확인).
+
+### 크로스커팅 발견 사항 처리 결과 (2026-07-14)
+
+- **`Long.parseLong(authentication.getName())` 인증 사용자 ID 추출 버그**: COURSE-08b(AOP 방식 재구현) 통합 테스트가 실제 JWT 인증 흐름(이메일 기반 `CustomUserPrincipal`)으로 검증하는 과정에서 발견. `Authentication.getName()`은 principal이 `UserDetails`면 `getUsername()`(이메일)을 반환하므로, 이 패턴은 실제 운영 환경에서 항상 `NumberFormatException`을 던진다. 기존 테스트들은 전부 `@WithMockUser(username = "<숫자>")`로 인위적인 숫자 username을 사용해 이 버그를 가려왔음.
+  - `course/controller/CourseController.createCourse()` → COURSE-08b 범위에서 `CustomUserPrincipal.getUserId()` 사용으로 수정 완료(2026-07-14).
+  - `member/controller/MemberSelfController.java` → 사용자 확인(2026-07-14)으로 지금 함께 수정(MEMBER-04 완료 무효화 절차 진행 중).
+  - `subscription/presentation/SubscriptionController.java`(2곳) → 사용자 확인(2026-07-14)으로 지금 수정하지 않음. Subscription BC는 이미 전면 재설계가 확정되어 있으므로(TASK.md 상단 BC 로드맵 참고), SUB-01~04 착수 시 이 결함도 함께 반영할 것.
 
 ### Member 관련 🟠 대기 항목 (타 BC 계획 시 등록 예정, 지금 임의 생성하지 않음)
 

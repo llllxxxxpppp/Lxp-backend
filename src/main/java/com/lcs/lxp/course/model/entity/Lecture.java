@@ -3,6 +3,7 @@ package com.lcs.lxp.course.model.entity;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.LectureId;
+import com.lcs.lxp.course.model.vo.Sortable;
 import com.lcs.lxp.course.model.vo.Title;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
@@ -20,7 +21,7 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "lectures")
-public class Lecture {
+public class Lecture implements Sortable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,15 +41,24 @@ public class Lecture {
     @Column(nullable = false)
     private String contentUrl;
 
+    @Column(nullable = false)
+    private String contentType;
+
+    @Column(name = "sort_order", nullable = false)
+    private int sortOrder;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
     @Column
     private OffsetDateTime updatedAt;
 
+    @Column
+    private OffsetDateTime deletedAt;
+
     protected Lecture() {}
 
-    static Lecture create(Course course, Title title, String contentUrl) {
+    static Lecture create(Course course, Title title, String contentUrl, String contentType, int sortOrder) {
         if (course == null) {
             throw new CourseException("강좌는 null일 수 없습니다.");
         }
@@ -58,11 +68,16 @@ public class Lecture {
         if (contentUrl == null || contentUrl.isBlank()) {
             throw new CourseException("강의 자료 URL은 비어있을 수 없습니다.");
         }
+        if (contentType == null || contentType.isBlank()) {
+            throw new CourseException("자료 타입은 비어있을 수 없습니다.");
+        }
         Lecture lecture = new Lecture();
         lecture.course = course;
         lecture.title = title;
-        lecture.status = ContentStatus.PRIVATE;
+        lecture.status = ContentStatus.PUBLIC;
         lecture.contentUrl = contentUrl;
+        lecture.contentType = contentType;
+        lecture.sortOrder = sortOrder;
         lecture.createdAt = OffsetDateTime.now();
         return lecture;
     }
@@ -87,6 +102,15 @@ public class Lecture {
         return contentUrl;
     }
 
+    public String getContentType() {
+        return contentType;
+    }
+
+    @Override
+    public int getSortOrder() {
+        return sortOrder;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -95,7 +119,16 @@ public class Lecture {
         return updatedAt;
     }
 
-    void update(Title newTitle, String contentUrl) {
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    public OffsetDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    void update(Title newTitle, String contentUrl, String contentType) {
+        checkNotDeleted();
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 강의를 수정할 수 없습니다.");
         }
@@ -105,18 +138,41 @@ public class Lecture {
         if (contentUrl == null || contentUrl.isBlank()) {
             throw new CourseException("강의 자료 URL은 비어있을 수 없습니다.");
         }
+        if (contentType == null || contentType.isBlank()) {
+            throw new CourseException("자료 타입은 비어있을 수 없습니다.");
+        }
         this.title = newTitle;
         this.contentUrl = contentUrl;
+        this.contentType = contentType;
         this.updatedAt = OffsetDateTime.now();
     }
 
     void publish() {
+        checkNotDeleted();
         this.status = ContentStatus.PUBLIC;
         this.updatedAt = OffsetDateTime.now();
     }
 
     void unpublish() {
+        checkNotDeleted();
         this.status = ContentStatus.PRIVATE;
         this.updatedAt = OffsetDateTime.now();
+    }
+
+    void delete() {
+        checkNotDeleted();
+        this.deletedAt = OffsetDateTime.now();
+    }
+
+    void assignSortOrder(int sortOrder) {
+        checkNotDeleted();
+        this.sortOrder = sortOrder;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    private void checkNotDeleted() {
+        if (deletedAt != null) {
+            throw new CourseException("삭제된 강의는 수정할 수 없습니다.");
+        }
     }
 }

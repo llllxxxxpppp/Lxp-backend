@@ -89,6 +89,11 @@
 - 근거: `MemberService.java` L139-149(changePassword), L151-164(updateInstructorProfile), L121-128(withdrawMember, 이벤트 발행). `PROGRESS.md` "회원 자기수정 API 노출(2026-07-08)" 기록과 일치.
 - 판정: 🟢 (코드 확인, 2026-07-13)
 - 비고: 이메일 자기 수정(`Member.updateEmail()`)은 도메인 메서드는 존재하나 호출부 없음 — 사용자 결정으로 미구현 상태 유지(`PROGRESS.md` 기록).
+- **완료 무효화(2026-07-14)**: COURSE-08b(AOP 재구현) 작업 중, `MemberSelfController.java`가 `Long.parseLong(authentication.getName())`으로 회원 ID를 추출하는데, 실제 JWT 인증 흐름에서 `authentication.getName()`은 이메일을 반환하므로 항상 `NumberFormatException`이 발생하는 버그를 발견함(동일 패턴이 `CourseController`, `SubscriptionController`에도 있었음). 기존 `MemberSelfControllerTest`는 `@WithMockUser(username = "1", ...)`로 숫자 username을 인위적으로 지정해 이 버그를 가려온 상태였음. 사용자 확정(2026-07-14)으로 이 작업을 🟡(재검증 필요)로 전환하고 함께 수정하기로 함.
+- 재검증: `MemberSelfController.resolveMemberId(Authentication)`(changePassword/updateInstructorProfile/withdraw 3개 엔드포인트가 공용으로 사용)를 `(CustomUserPrincipal) authentication.getPrincipal()).getUserId()` 사용으로 수정. `MemberSelfControllerTest`의 컨트롤러 본문 도달 테스트 3개를 실제 `CustomUserPrincipal`(이메일 기반) 주입 방식으로 보정, 인증 검사에서 걸러지는 401 테스트 3개는 영향 없어 그대로 유지.
+- 재검증 리뷰: PASS(minor 1건 — 본 문서 플레이스홀더 문구, 이번 갱신으로 해소). 완료 기준 3항목 자체는 변경 없음, 회원 ID 추출 방식만 수정되었음을 확인.
+- 재검증 테스트: `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 커버리지 93%. `MemberSelfControllerTest` 6/6 통과, 전체 회귀 없음.
+- 재검증 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
 
 ---
 

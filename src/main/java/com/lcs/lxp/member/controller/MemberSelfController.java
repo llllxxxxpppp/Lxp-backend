@@ -4,6 +4,7 @@ import com.lcs.lxp.member.dto.request.ChangePasswordRequest;
 import com.lcs.lxp.member.dto.request.UpdateInstructorProfileRequest;
 import com.lcs.lxp.member.dto.response.UserResponseDTO;
 import com.lcs.lxp.member.service.MemberService;
+import com.lcs.lxp.security.principal.CustomUserPrincipal;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -47,6 +48,7 @@ public class MemberSelfController {
     }
 
     private Long resolveMemberId(Authentication authentication) {
-        return Long.parseLong(authentication.getName());
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        return principal.getUserId();
     }
 }

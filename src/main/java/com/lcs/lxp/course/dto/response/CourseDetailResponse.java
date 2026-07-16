@@ -1,6 +1,9 @@
 package com.lcs.lxp.course.dto.response;
 
 import com.lcs.lxp.course.model.entity.Course;
+import com.lcs.lxp.course.model.entity.Lecture;
+import com.lcs.lxp.course.model.entity.Mission;
+import com.lcs.lxp.course.model.vo.Sortable;
 import java.util.List;
 
 public record CourseDetailResponse(
@@ -11,7 +14,8 @@ public record CourseDetailResponse(
         String description,
         String thumbnailUrl,
         List<LectureResponse> lectures,
-        List<MissionResponse> missions) {
+        List<MissionResponse> missions,
+        List<CourseItemResponse> items) {
 
     public static CourseDetailResponse from(Course course) {
         List<LectureResponse> lectures = course.getLectures().stream()
@@ -19,6 +23,9 @@ public record CourseDetailResponse(
                 .toList();
         List<MissionResponse> missions = course.getMissions().stream()
                 .map(MissionResponse::from)
+                .toList();
+        List<CourseItemResponse> items = course.getSortableItems().stream()
+                .map(CourseDetailResponse::toItemResponse)
                 .toList();
         return new CourseDetailResponse(
                 course.getId().value(),
@@ -28,6 +35,14 @@ public record CourseDetailResponse(
                 course.getDescription(),
                 course.getThumbnailUrl(),
                 lectures,
-                missions);
+                missions,
+                items);
+    }
+
+    private static CourseItemResponse toItemResponse(Sortable sortable) {
+        if (sortable instanceof Lecture lecture) {
+            return CourseItemResponse.fromLecture(lecture);
+        }
+        return CourseItemResponse.fromMission((Mission) sortable);
     }
 }

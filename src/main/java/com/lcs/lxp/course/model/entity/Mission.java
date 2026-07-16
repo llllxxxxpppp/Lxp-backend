@@ -3,6 +3,7 @@ package com.lcs.lxp.course.model.entity;
 import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.model.vo.ContentStatus;
 import com.lcs.lxp.course.model.vo.MissionId;
+import com.lcs.lxp.course.model.vo.Sortable;
 import com.lcs.lxp.course.model.vo.Title;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
@@ -20,7 +21,7 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "missions")
-public class Mission {
+public class Mission implements Sortable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,17 +41,23 @@ public class Mission {
     @Column(columnDefinition = "TEXT", length = 4096)
     private String content;
 
+    @Column(name = "sort_order", nullable = false)
+    private int sortOrder;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
     @Column
     private OffsetDateTime updatedAt;
 
+    @Column
+    private OffsetDateTime deletedAt;
+
     private static final int MAX_CONTENT_LENGTH = 4096;
 
     protected Mission() {}
 
-    static Mission create(Course course, Title title, String content) {
+    static Mission create(Course course, Title title, String content, int sortOrder) {
         if (course == null) {
             throw new CourseException("강좌는 null일 수 없습니다.");
         }
@@ -67,7 +74,8 @@ public class Mission {
         mission.course = course;
         mission.title = title;
         mission.content = content;
-        mission.status = ContentStatus.PRIVATE;
+        mission.status = ContentStatus.PUBLIC;
+        mission.sortOrder = sortOrder;
         mission.createdAt = OffsetDateTime.now();
         return mission;
     }
@@ -92,6 +100,11 @@ public class Mission {
         return content;
     }
 
+    @Override
+    public int getSortOrder() {
+        return sortOrder;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -100,7 +113,16 @@ public class Mission {
         return updatedAt;
     }
 
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    public OffsetDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
     void update(Title newTitle, String content) {
+        checkNotDeleted();
         if (course.getStatus() == ContentStatus.PUBLIC && status == ContentStatus.PUBLIC) {
             throw new CourseException("공개 상태에서는 미션을 수정할 수 없습니다.");
         }
@@ -119,12 +141,31 @@ public class Mission {
     }
 
     void publish() {
+        checkNotDeleted();
         this.status = ContentStatus.PUBLIC;
         this.updatedAt = OffsetDateTime.now();
     }
 
     void unpublish() {
+        checkNotDeleted();
         this.status = ContentStatus.PRIVATE;
         this.updatedAt = OffsetDateTime.now();
+    }
+
+    void delete() {
+        checkNotDeleted();
+        this.deletedAt = OffsetDateTime.now();
+    }
+
+    void assignSortOrder(int sortOrder) {
+        checkNotDeleted();
+        this.sortOrder = sortOrder;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    private void checkNotDeleted() {
+        if (deletedAt != null) {
+            throw new CourseException("삭제된 미션은 수정할 수 없습니다.");
+        }
     }
 }
