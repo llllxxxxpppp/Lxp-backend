@@ -1,7 +1,9 @@
 package com.lcs.lxp.subscription.presentation;
 
+import com.lcs.lxp.security.principal.CustomUserPrincipal;
 import com.lcs.lxp.subscription.application.dto.response.SubscriptionResponse;
 import com.lcs.lxp.subscription.application.service.SubscriptionService;
+import com.lcs.lxp.subscription.domain.exception.SubscriptionException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,7 +36,10 @@ public class SubscriptionController {
 
     @PostMapping("/{subscriptionId}/cancel")
     public ResponseEntity<Void> cancel(Authentication authentication, @PathVariable Long subscriptionId) {
-        Long memberId = Long.parseLong(authentication.getName());
+        if (!(authentication.getPrincipal() instanceof CustomUserPrincipal principal)) {
+            throw new SubscriptionException("인증 정보가 올바르지 않습니다.");
+        }
+        Long memberId = principal.getUserId();
         subscriptionService.cancelSubscription(memberId, subscriptionId);
         return ResponseEntity.ok().build();
     }

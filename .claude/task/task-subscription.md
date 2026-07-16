@@ -274,10 +274,22 @@
 - 교체된 테스트가 실제 principal(`getUserId()` 반환값)과 `subscriptionService.cancelSubscription(memberId, subscriptionId)` 호출 인자가 일치함을 `verify()`로 검증한다.
 - `get()` 엔드포인트는 인증 사용자 ID를 사용하지 않으므로(경로 변수만 사용) 이 작업 범위에 포함하지 않는다.
 
-**관련 규칙 위치**: `.claude/ARCHITECTURE.md`는 이 규칙을 직접 명시하지 않음(버그 수정이며 신규 비즈니스 규칙 아님) — 근거는 `.claude/TASK.md` "크로스커팅 발견 사항 처리 결과 (2026-07-14)" 및 이미 적용된 선례(`course/controller/CourseController.java`, `member/controller/MemberSelfController.java`).
+**완료 기준 추가 (2026-07-16, 사용자 지시 — 커밋 전 계획 변경)**:
+- `cancel()`에서 `authentication.getPrincipal()`을 무조건 `CustomUserPrincipal`로 캐스팅하지 않고, `instanceof` 검사를 먼저 수행한다. `CustomUserPrincipal`이 아니면(예: `@WithMockUser`가 만드는 일반 스프링 시큐리티 `User`, 또는 principal이 없는 경우) `ClassCastException`이 아니라 `SubscriptionException`(기존 `SubscriptionExceptionHandler`가 이미 400으로 매핑)을 던진다. 메시지는 기존 톤(`"본인의 구독권만 취소할 수 있습니다."` 등)에 맞춰 `"인증 정보가 올바르지 않습니다."`로 한다.
+- `SubscriptionControllerTest`에 신규 테스트 케이스 추가: principal이 `CustomUserPrincipal`이 아닌 인증 객체(예: `org.springframework.security.core.userdetails.User` 기반 `UsernamePasswordAuthenticationToken`)로 취소 요청 시 400과 위 메시지를 반환하고 `verifyNoInteractions(subscriptionService)`로 서비스가 호출되지 않았음을 검증한다(BDD 네이밍 준수).
+
+**관련 규칙 위치**: `.claude/ARCHITECTURE.md`는 이 규칙을 직접 명시하지 않음(버그 수정이며 신규 비즈니스 규칙 아님) — 근거는 `.claude/TASK.md` "크로스커팅 발견 사항 처리 결과 (2026-07-14)" 및 이미 적용된 선례(`course/controller/CourseController.java`, `member/controller/MemberSelfController.java`). instanceof 검사 및 예외 처리 추가는 사용자 지시(2026-07-16)에 근거.
 
 **대상 파일**: `subscription/presentation/SubscriptionController.java`, `subscription/presentation/SubscriptionControllerTest.java`
 
 **의존성**: SUB-04(🟢 완료)
 
 **진행 기록**: (미착수) — 2026-07-14 COURSE-08b 작업 중 발견되어 Subscription BC 재설계 완료 후 반영하기로 보류됐던 크로스커팅 버그(TASK.md 참고)를, 2026-07-16 사용자 요청으로 SUB-01~07 전체 완료 시점에 SUB-08로 구체화함. 현재 코드 확인 결과 `cancel()` 1곳에 남아있음(2026-07-14 시점 기록된 "2곳"은 SUB-04에서 제거된 수동 생성/재발급 엔드포인트 쪽 1곳이 함께 삭제되어 해소됨).
+2026-07-16: 1차 파이프라인(테스트 작성→구현→리뷰 PASS→테스트 실행 PASS) 완료 직후, 커밋 전 사용자가 `instanceof` 검사 + 예외 처리 추가를 지시하여 완료 기준을 확장(위 "완료 기준 추가" 참고). 확장된 기준으로 파이프라인 재수행.
+
+**완료 (2026-07-16)**:
+- 테스트: `SubscriptionControllerTest.java`의 취소(cancel) 관련 테스트 4종(`givenAuthenticatedUser_whenCancelSubscription_thenReturns200`, `givenServiceException_whenCancelSubscription_thenReturns400`, `givenManualCreateEndpointRemoved_whenPostSubscriptions_thenReturns404`, `givenReissueEndpointRemoved_whenPostReissue_thenReturns405`)를 `@WithMockUser(username = "1")`에서 `CustomUserPrincipal` + `UsernamePasswordAuthenticationToken.authenticated(...)`를 직접 구성하는 `memberAuthentication(long)` 헬퍼 기반으로 교체(실제 운영과 동일한 이메일 기반 principal로 검증). 신규 테스트 `givenNonCustomUserPrincipal_whenCancelSubscription_thenReturns400` 추가(일반 `User`(UserDetails) principal을 담은 `genericUserAuthentication(long)` 헬퍼로 요청 시 400 + `verifyNoInteractions` 검증). `get()` 관련 테스트 2종은 범위 밖이라 변경 없음.
+- 구현: `SubscriptionController.cancel()`에서 `Long.parseLong(authentication.getName())` 제거. `authentication.getPrincipal() instanceof CustomUserPrincipal principal` 패턴 매칭으로 타입 확인 후, 아니면 `SubscriptionException("인증 정보가 올바르지 않습니다.")`를 던지고(기존 `SubscriptionExceptionHandler`가 400으로 매핑, 신규 핸들러 추가 없음), 맞으면 `principal.getUserId()`로 회원 ID 추출. `get()`은 변경 없음.
+- 리뷰: 1차 승인(PASS, blocker/major/minor 없음), 2차(instanceof 확장분) 승인(PASS, blocker/major/minor 없음 — 패턴 변수 스코프·예외 매핑·테스트 경로 모두 정상 확인).
+- 테스트 실행: 1차 `./gradlew check` PASS(전체 테스트 통과, PMD 0건, 커버리지 91%), 2차(확장분 포함) `./gradlew check` PASS(전체 테스트 통과, PMD 0건, 커버리지 92.78%).
+- 완료 근거: 리뷰 승인(1차+2차) + 테스트 전체 통과(1차+2차) + PMD 0건 + 사용자 확인(2026-07-16).
