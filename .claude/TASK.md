@@ -73,6 +73,7 @@
 | SEC-02 | 🟢 | JWT 인증 필터 단위 테스트 | Security | - | 없음 |
 | SEC-03 | 🟢 | 리프레시 토큰 재발급 단위 테스트 | Security | - | 없음 |
 | SEC-04 | 🟢 | 인증 Principal/UserDetailsService 단위 테스트 | Security | - | 없음 |
+| SEC-05 | 🔵 | Swagger(OpenAPI) API 명세서 열람 도입 | Security | 마스터 에이전트 세션(2026-07-16) | 없음 |
 
 세부 내용은 `.claude/task/task-security.md` 참고.
 

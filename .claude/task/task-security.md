@@ -100,3 +100,23 @@ Security(공통 인프라) 세부 작업 파일이다. 상태의 원본은 `.cla
 - 4-3(리뷰): PASS. 변경 범위가 테스트 파일 2개뿐임을 확인, 완료 기준 3항목 모두 실질 검증. `Member`의 `id` 필드를 `ReflectionTestUtils.setField`로 주입하는 방식이 기존 `MemberServiceTest` 관례와 일치함을 확인.
 - 4-4(테스트 실행): `./gradlew check` BUILD SUCCESSFUL. PMD 통과. 전체 커버리지 91.18%, security 패키지 커버리지 98.06%(목표 80% 대폭 상회) — SEC-01~04 완결로 Security 경량 BC 커버리지 보강 작업 종료.
 - 완료 근거: 리뷰 PASS + 테스트/PMD 통과 + 사용자 확인(2026-07-14).
+
+---
+
+## [SEC-05] Swagger(OpenAPI) API 명세서 열람 도입
+
+**설명**: springdoc-openapi 도입으로 기존 구현된 API(Course/Member/Subscription)의 요청/응답 스펙을 Swagger UI로 열람 가능하게 한다. API 실행/인증 테스트가 아닌 명세서 열람이 목적이므로 Bearer SecurityScheme 등록, 컨트롤러별 `@Operation`/`@Tag` 어노테이션, 운영/개발 프로필 분리는 이번 범위에서 제외한다.
+
+**완료 기준**:
+- `build.gradle.kts`에 `org.springdoc:springdoc-openapi-starter-webmvc-ui` 의존성 추가
+- 제목/버전 등 기본 정보만 담은 `OpenAPI` `@Bean` 등록 (Bearer SecurityScheme 미포함)
+- `SecurityConfig`에 `/v3/api-docs/**`, `/swagger-ui/**` permitAll 추가 (프로필 조건 없음)
+- `SecurityConfigTest`에 미인증 상태에서 `/v3/api-docs`, `/swagger-ui/index.html` 200 응답 확인 회귀 테스트 추가 (`verifyNoInteractions(courseService)` 등으로 test-rules.md 충족)
+- `./gradlew check`(테스트+PMD) 통과
+
+**관련 규칙 위치**: `.claude/rules/implementation-rules.md`(기존 Controller 수정 없음), `.claude/rules/test-rules.md`(BDD 네이밍/verify 규칙)
+
+**대상 파일**: `build.gradle.kts`, `com.lcs.lxp.config.OpenApiConfig`(신규), `src/main/java/com/lcs/lxp/security/config/SecurityConfig.java`, `src/test/java/com/lcs/lxp/security/config/SecurityConfigTest.java`
+
+**진행 기록**:
+- 2026-07-16 사용자 지시로 계획만 등록(착수 전, 상태 ⚪). 목적이 "API 호출/테스트"가 아닌 "명세서 열람"으로 확정됨에 따라 Bearer 인증 스킴, 프로필별 노출 제한, 컨트롤러 어노테이션 확장은 이번 범위에서 제외 — 필요 시 별도 작업으로 후속 등록.

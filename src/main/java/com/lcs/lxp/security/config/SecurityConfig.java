@@ -87,6 +87,8 @@ public class SecurityConfig {
 
         http.authorizeHttpRequests(auth -> {
             auth.requestMatchers("/api/auth/**").permitAll();
+            auth.requestMatchers("/v3/api-docs/**").permitAll();
+            auth.requestMatchers("/swagger-ui/**").permitAll();
             auth.requestMatchers("/api/admin/**").hasRole("ADMIN");
             auth.requestMatchers("/api/member/**").hasRole("MEMBER");
             auth.requestMatchers(HttpMethod.POST, "/api/courses").hasRole("INSTRUCTOR");

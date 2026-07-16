@@ -580,4 +580,24 @@ class SecurityConfigTest {
 
         verifyNoInteractions(courseService);
     }
+
+    // --- SEC-05: Swagger/OpenAPI 명세서 열람 (미인증 접근 허용) ---
+
+    @Test
+    @DisplayName("미인증 사용자가 OpenAPI 문서를 요청하면 200 OK를 반환한다")
+    void givenUnauthenticated_whenAccessApiDocs_thenReturns200() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    @DisplayName("미인증 사용자가 Swagger UI를 요청하면 200 OK를 반환한다")
+    void givenUnauthenticated_whenAccessSwaggerUi_thenReturns200() throws Exception {
+        mockMvc.perform(get("/swagger-ui/index.html"))
+                .andExpect(status().isOk());
+
+        verifyNoInteractions(courseService);
+    }
 }
