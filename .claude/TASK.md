@@ -37,6 +37,7 @@
 | MEMBER-04 | 🟢 | 회원 자기 관리 (비밀번호 변경/강사 프로필 수정/자진 탈퇴) | Member | - | MEMBER-01, MEMBER-02 |
 | MEMBER-05 | 🟢 | 회원 정지 처리 + 이벤트 발행 | Member | - | MEMBER-01 |
 | MEMBER-06 | 🟢 | 탈퇴 회원 이메일 마스킹 | Member | - | MEMBER-04 |
+| MEMBER-07 | 🟢 | MemberSelfController principal instanceof 검사 추가 (크로스커팅 정합화) | Member | - | MEMBER-04 |
 
 세부 내용은 `.claude/task/task-member.md` 참고.
 
@@ -103,6 +104,11 @@
 ### 크로스커팅 발견 사항 처리 결과 (2026-07-16, Course)
 
 - **`CourseController`의 `(CustomUserPrincipal) authentication.getPrincipal()` 무조건 캐스팅**: SUB-08(`SubscriptionController`) 완료 직후, 사용자 요청으로 동일 패턴이 있는 다른 BC를 확인하는 과정에서 발견. 11개 메서드가 개별 인라인으로 캐스팅해 실패 시 `ClassCastException`(500)이 발생할 수 있었음. SUB-08과 동일하게 `instanceof` 검사 + 도메인 예외로 방어하도록 COURSE-11로 등록.
+
+### 크로스커팅 발견 사항 처리 결과 (2026-07-16, Member)
+
+- **`MemberSelfController.resolveMemberId()`의 `(CustomUserPrincipal) authentication.getPrincipal()` 무조건 캐스팅**: 위와 동일한 확인 과정에서 발견(1곳, 헬퍼 경유). SUB-08과 동일하게 `instanceof` 검사 + 도메인 예외로 방어하도록 MEMBER-07로 등록.
+- **Member BC에 `MemberException`을 처리하는 예외 핸들러가 전혀 없음(신규 발견)**: 전체 코드베이스 확인 결과 `SubscriptionExceptionHandler`/`CourseExceptionHandler`(각각 `@RestControllerAdvice`, 400 매핑)는 존재하나 Member BC에는 대응하는 핸들러가 없어, 기존에도 `MemberService`가 던지는 `MemberException`(회원가입 중복 이메일 등)이 전부 처리되지 않고 500으로 노출되고 있었음(관련 컨트롤러 레벨 테스트 부재로 지금까지 발견되지 않음). MEMBER-07에서 신규 `MemberExceptionHandler`를 추가해 이번 instanceof 가드뿐 아니라 기존 `MemberException` 전체가 400으로 일관되게 처리되도록 함께 반영(사용자 확인, 2026-07-16).
 
 ### Member 관련 🟠 대기 항목 (타 BC 계획 시 등록 예정, 지금 임의 생성하지 않음)
 

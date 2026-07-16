@@ -130,6 +130,33 @@
 
 ---
 
+## [MEMBER-07] MemberSelfController principal instanceof 검사 추가 (크로스커팅 정합화)
+
+**설명**: `MemberSelfController.resolveMemberId(Authentication)`이 `(CustomUserPrincipal) authentication.getPrincipal()`을 무조건 캐스팅하는데, principal이 `CustomUserPrincipal`이 아닌 경우(비정상 인증 상태) `ClassCastException`(500)이 노출된다. `SubscriptionController`(SUB-08)에서 동일 패턴을 `instanceof` 검사 + 도메인 예외로 방어한 선례를 따라 Member BC에도 동일하게 적용한다. 추가로 확인 결과 Member BC에는 `MemberException`을 처리하는 `@RestControllerAdvice`가 전혀 없어(전체 코드베이스 확인, 2026-07-16) 이번 가드가 던지는 예외를 포함해 기존 `MemberException` 전체가 500으로 노출되고 있었다.
+
+**완료 기준**:
+- `resolveMemberId(Authentication)`에서 `authentication.getPrincipal() instanceof CustomUserPrincipal principal` 패턴 매칭으로 타입을 확인, 아니면 `MemberException("인증 정보가 올바르지 않습니다.")`를 던진다.
+- 신규 `member/exception/MemberExceptionHandler.java`(`@RestControllerAdvice`) 추가 — `@ExceptionHandler(MemberException.class)`로 400 + `ErrorResponse(e.getMessage())` 응답(`SubscriptionExceptionHandler`/`CourseExceptionHandler`와 동일 패턴).
+- `MemberSelfControllerTest`에 신규 테스트 추가: principal이 `CustomUserPrincipal`이 아닌 인증 객체로 3개 엔드포인트 중 대표 1개(예: `changePassword`) 요청 시 400 + 메시지 + `verifyNoInteractions(memberService)` 검증.
+- 기존 changePassword/updateInstructorProfile/withdraw 정상 케이스는 이미 MEMBER-04 재검증에서 `CustomUserPrincipal` 기반으로 되어 있어 변경 없음.
+
+**관련 규칙 위치**: 신규 비즈니스 규칙 아님 — 근거는 `.claude/TASK.md` "크로스커팅 발견 사항 처리 결과 (2026-07-16)" 및 선례(`subscription/presentation/SubscriptionController.java`, SUB-08).
+
+**대상 파일**: `member/controller/MemberSelfController.java`, `member/exception/MemberExceptionHandler.java`(신규), `src/test/java/com/lcs/lxp/member/controller/MemberSelfControllerTest.java`
+
+**의존성**: MEMBER-04(🟢 완료)
+
+**진행 기록**: (착수) — 2026-07-16 SUB-08 완료 직후 사용자 요청으로 동일 패턴을 Member/Course BC에도 확인, MEMBER-07로 구체화.
+
+**완료 (2026-07-16)**:
+- 테스트: `MemberSelfControllerTest.java`에 `genericUserAuthentication(long)` 헬퍼(`CustomUserPrincipal`이 아닌 일반 `User`(UserDetails) 기반 인증 객체 생성) 및 신규 테스트 `givenNonCustomUserPrincipal_whenChangePassword_thenReturns400`(대표 엔드포인트 `changePassword`, 400 + 메시지 + `verifyNoInteractions(memberService)` 검증) 추가. 기존 테스트는 무변경.
+- 구현: `MemberSelfController.resolveMemberId(Authentication)`을 `authentication.getPrincipal() instanceof CustomUserPrincipal principal` 패턴 매칭으로 변경, 실패 시 `MemberException("인증 정보가 올바르지 않습니다.")` 던짐. 신규 `member/exception/MemberExceptionHandler.java`(`@RestControllerAdvice`, `MemberException` → 400 + `ErrorResponse`) 및 `member/dto/response/ErrorResponse.java`(신규, `Subscription`/`Course` BC와 동일한 record 형태) 추가 — Member BC에 `MemberException` 처리 핸들러가 전혀 없던 사전 존재 결함도 함께 해소됨(기존 `MemberService`가 던지는 다른 `MemberException`들도 이제 400으로 일관되게 처리됨).
+- 리뷰: 승인(PASS, blocker/major/minor 없음). 기존 3개 엔드포인트 로직·시그니처 변경 없음, `Subscription`/`Course` BC와 패턴 일관성 확인.
+- 테스트 실행: `./gradlew check` BUILD SUCCESSFUL, 전체 테스트 통과, PMD 위반 0건, 커버리지 91.79%.
+- 완료 근거: 리뷰 승인 + 테스트 전체 통과 + PMD 0건 + 사용자 확인(2026-07-16).
+
+---
+
 ## 범위 제외 항목 (참고용, 작업 아님)
 
 - 회원/강사/강좌/미션답안/미션답안댓글 신고 기능: `.claude/DO_NOT_IMPLEMENT.md`에 의해 명시적으로 구현 대상 아님.

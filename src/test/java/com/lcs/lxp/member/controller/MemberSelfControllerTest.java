@@ -17,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
@@ -69,6 +71,19 @@ class MemberSelfControllerTest {
         return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
     }
 
+    /**
+     * {@code CustomUserPrincipal}이 아닌 일반 스프링 시큐리티 {@code UserDetails}({@code User}) 기반
+     * 인증 객체. 컨트롤러가 principal 타입을 {@code instanceof}로 검증하지 않고 무조건 캐스팅할 경우
+     * {@code ClassCastException}(500)이 발생하는 상황을 재현하기 위한 헬퍼이다.
+     */
+    private Authentication genericUserAuthentication(long memberId) {
+        User principal = new User(
+                "member" + memberId + "@test.com",
+                "password",
+                List.of(new SimpleGrantedAuthority("ROLE_MEMBER")));
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+    }
+
     // --- PATCH /api/members/me/password (changePassword) ---
 
     @Test
@@ -94,6 +109,21 @@ class MemberSelfControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(memberService);
+    }
+
+    @Test
+    @DisplayName("principal이 CustomUserPrincipal이 아니면 400과 인증 정보 오류 메시지를 반환하고 서비스는 호출되지 않는다")
+    void givenNonCustomUserPrincipal_whenChangePassword_thenReturns400() throws Exception {
+        ChangePasswordRequest request = new ChangePasswordRequest("current_password", "new_password");
+
+        mockMvc.perform(patch("/api/members/me/password")
+                        .with(authentication(genericUserAuthentication(1L)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("인증 정보가 올바르지 않습니다."));
 
         verifyNoInteractions(memberService);
     }

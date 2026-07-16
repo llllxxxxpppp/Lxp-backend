@@ -3,6 +3,7 @@ package com.lcs.lxp.member.controller;
 import com.lcs.lxp.member.dto.request.ChangePasswordRequest;
 import com.lcs.lxp.member.dto.request.UpdateInstructorProfileRequest;
 import com.lcs.lxp.member.dto.response.UserResponseDTO;
+import com.lcs.lxp.member.exception.MemberException;
 import com.lcs.lxp.member.service.MemberService;
 import com.lcs.lxp.security.principal.CustomUserPrincipal;
 import jakarta.validation.Valid;
@@ -48,7 +49,9 @@ public class MemberSelfController {
     }
 
     private Long resolveMemberId(Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
-        return principal.getUserId();
+        if (authentication.getPrincipal() instanceof CustomUserPrincipal principal) {
+            return principal.getUserId();
+        }
+        throw new MemberException("인증 정보가 올바르지 않습니다.");
     }
 }
