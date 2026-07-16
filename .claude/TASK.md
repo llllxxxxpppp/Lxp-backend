@@ -63,6 +63,7 @@
 | SUB-05 | 🟢 | 회원가입 이벤트 리스너(무료 구독권 자동 발급) | Subscription | - | SUB-01, MEMBER-02 |
 | SUB-06 | 🟢 | 회원 정지/탈퇴 이벤트 리스너(구독권 정지·환불) | Subscription | - | SUB-01, SUB-04, MEMBER-05, MEMBER-04 |
 | SUB-07 | 🟢 | 만료 임박 구독권 자동 재발급 배치 | Subscription | - | SUB-01, SUB-03 |
+| SUB-08 | ⚪ | SubscriptionController 인증 사용자 ID 추출 버그 수정 (크로스커팅 정합화) | Subscription | - | SUB-04 |
 
 세부 내용은 `.claude/task/task-subscription.md` 참고.
 
@@ -96,6 +97,7 @@
   - `course/controller/CourseController.createCourse()` → COURSE-08b 범위에서 `CustomUserPrincipal.getUserId()` 사용으로 수정 완료(2026-07-14).
   - `member/controller/MemberSelfController.java` → 사용자 확인(2026-07-14)으로 지금 함께 수정(MEMBER-04 완료 무효화 절차 진행 중).
   - `subscription/presentation/SubscriptionController.java`(2곳) → 사용자 확인(2026-07-14)으로 지금 수정하지 않음. Subscription BC는 이미 전면 재설계가 확정되어 있으므로(TASK.md 상단 BC 로드맵 참고), SUB-01~04 착수 시 이 결함도 함께 반영할 것.
+  - **후속(2026-07-16)**: SUB-04 완료 근거를 재확인한 결과 이 결함이 실제로는 반영되지 않고 남아있음(수동 생성/재발급 엔드포인트 제거만 수행됨, 남은 1곳은 `cancel()`). SUB-01~07 전체 완료 후 SUB-08로 구체화하여 정식 작업으로 등록(위 요약표 참고).
 
 ### Member 관련 🟠 대기 항목 (타 BC 계획 시 등록 예정, 지금 임의 생성하지 않음)
 
@@ -106,5 +108,5 @@
 
 - **회원 관리 (Member)**: 회원 가입/인증/정지/탈퇴, 강사 프로필, 어드민 강사 관리. 기존 구현 내역은 `.claude/PROGRESS.md`(레거시, 대조 전용) 참고.
 - **강좌 컨텐츠 관리 (Course)**: 강좌/강의/미션 CRUD 및 공개·비공개는 기존 구현 존재(대부분 🟢). soft delete, 순서(Sortable) 관리, 강의 자료 타입, 정지 강사 방어는 신규 구현 필요(⚪). COURSE-01은 강의/미션 초기 생성 상태를 도메인 문서 기준(PUBLIC)으로 맞추는 수정이 필요해 ⚪로 시작.
-- **구독권 결제 관리 (Subscription)**: 기존 구현(2026-06-23)이 도메인 문서와 상태 표현·재발급 이력·유효기간 계산·가격·결제 아키텍처에서 크게 달라 전면 재설계로 확정(2026-07-13 사용자 확정). SUB-01~07 전체 완료(2026-07-15, 중간에 도메인 문서 갱신에 따른 SUB-01/SUB-04 재검증 포함) — Subscription BC 계획 항목 모두 🟢.
+- **구독권 결제 관리 (Subscription)**: 기존 구현(2026-06-23)이 도메인 문서와 상태 표현·재발급 이력·유효기간 계산·가격·결제 아키텍처에서 크게 달라 전면 재설계로 확정(2026-07-13 사용자 확정). SUB-01~07 전체 완료(2026-07-15, 중간에 도메인 문서 갱신에 따른 SUB-01/SUB-04 재검증 포함). 2026-07-16: 2026-07-14에 발견되고 보류됐던 크로스커팅 인증 버그(`SubscriptionController`)를 SUB-08로 구체화하여 ⚪로 추가.
 - **Security (공통 인프라)**: JWT 인증/인가·리프레시 토큰·UserDetailsService는 이미 구현되어 있으나 단위 테스트가 전혀 없었음(2026-07-13 발견). 새 기능 없이 기존 코드에 대한 테스트 커버리지 보강만 진행(SEC-01~04).

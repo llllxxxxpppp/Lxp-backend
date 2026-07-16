@@ -261,3 +261,23 @@
 - 리뷰: 승인(PASS, minor 2건 — 테스트 클래스 Javadoc의 "SUB-07에서 재작성 예정" 문구가 이번 diff로 모순됨/스케줄러 로그가 이벤트 리스너만큼 구조화되지 않음, 둘 다 기능 영향 없어 기록만).
 - 테스트 실행: `SubscriptionServiceTest` 21/21, `SubscriptionReissueSchedulerTest` 1/1 PASS(전체 PASS), PMD 위반 0건, 전체 커버리지 89%. `@EnableScheduling` 추가로 인한 스프링 컨텍스트 회귀 없음 확인.
 - 완료 근거: 리뷰 승인 + 테스트 전체 통과 + PMD 0건 + 사용자 확인(2026-07-15).
+
+---
+
+## [SUB-08] SubscriptionController 인증 사용자 ID 추출 버그 수정 (크로스커팅 정합화)
+
+**설명**: `SubscriptionController.cancel()`이 `Long.parseLong(authentication.getName())`으로 회원 ID를 추출하는데, 실제 JWT 인증 흐름에서 `Authentication.getPrincipal()`은 이메일 기반 `CustomUserPrincipal`(`UserDetails`)이고 `getName()`은 `getUsername()`(이메일)을 반환하므로 이 경로는 운영 환경에서 항상 `NumberFormatException`을 던진다. `course/controller/CourseController`(COURSE-08b), `member/controller/MemberSelfController`(MEMBER-04 완료 무효화 절차)는 이미 동일 버그를 `CustomUserPrincipal.getUserId()` 사용으로 수정했으나, Subscription BC만 "전면 재설계 확정" 사유로 2026-07-14 당시 보류되었다가(TASK.md "크로스커팅 발견 사항 처리 결과 (2026-07-14)" 참고) SUB-04 재작성 시에도 실제로는 반영되지 않고 남아있음이 2026-07-16 재확인으로 드러남.
+
+**완료 기준**:
+- `SubscriptionController.cancel()`에서 `Long.parseLong(authentication.getName())` 제거. `(CustomUserPrincipal) authentication.getPrincipal()).getUserId()`로 회원 ID를 추출한다(신규 `import com.lcs.lxp.security.principal.CustomUserPrincipal;` 필요). `MemberSelfController.resolveMemberId(Authentication)` private 헬퍼와 동일한 패턴을 재사용할 것(이 컨트롤러도 메서드가 늘면 헬퍼로 추출 검토, 현재는 사용처가 1곳뿐이라 인라인도 허용).
+- `SubscriptionControllerTest`의 `@WithMockUser(username = "1")` 기반 취소 테스트 2종(`givenAuthenticatedUser_whenCancelSubscription_thenReturns200`, `givenServiceException_whenCancelSubscription_thenReturns400`)과 제거된 엔드포인트 회귀 테스트 2종을, `CourseControllerTest`의 `instructorAuthentication(long)` 패턴과 동일하게 `CustomUserPrincipal` + `UsernamePasswordAuthenticationToken.authenticated(...)`를 직접 구성해 `.with(authentication(...))`로 주입하는 방식으로 교체한다(`@WithMockUser`가 만드는 principal은 일반 스프링 시큐리티 `User`라 이 버그를 가리므로, 실제 운영과 동일한 이메일 기반 `CustomUserPrincipal`로 검증해야 회귀 방지 효과가 있음).
+- 교체된 테스트가 실제 principal(`getUserId()` 반환값)과 `subscriptionService.cancelSubscription(memberId, subscriptionId)` 호출 인자가 일치함을 `verify()`로 검증한다.
+- `get()` 엔드포인트는 인증 사용자 ID를 사용하지 않으므로(경로 변수만 사용) 이 작업 범위에 포함하지 않는다.
+
+**관련 규칙 위치**: `.claude/ARCHITECTURE.md`는 이 규칙을 직접 명시하지 않음(버그 수정이며 신규 비즈니스 규칙 아님) — 근거는 `.claude/TASK.md` "크로스커팅 발견 사항 처리 결과 (2026-07-14)" 및 이미 적용된 선례(`course/controller/CourseController.java`, `member/controller/MemberSelfController.java`).
+
+**대상 파일**: `subscription/presentation/SubscriptionController.java`, `subscription/presentation/SubscriptionControllerTest.java`
+
+**의존성**: SUB-04(🟢 완료)
+
+**진행 기록**: (미착수) — 2026-07-14 COURSE-08b 작업 중 발견되어 Subscription BC 재설계 완료 후 반영하기로 보류됐던 크로스커팅 버그(TASK.md 참고)를, 2026-07-16 사용자 요청으로 SUB-01~07 전체 완료 시점에 SUB-08로 구체화함. 현재 코드 확인 결과 `cancel()` 1곳에 남아있음(2026-07-14 시점 기록된 "2곳"은 SUB-04에서 제거된 수동 생성/재발급 엔드포인트 쪽 1곳이 함께 삭제되어 해소됨).
