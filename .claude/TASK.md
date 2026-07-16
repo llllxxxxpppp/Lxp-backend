@@ -53,6 +53,7 @@
 | COURSE-08b | 🟢 | 정지된 강사 2차 방어 인터셉터 | Course | - | COURSE-08a |
 | COURSE-09 | 🟢 | 강좌/강의/미션 소유권(작성 강사 본인) 검증 전체 적용 | Course | - | 없음 |
 | COURSE-10 | 🟢 | 강의/미션 순서 보장 강화 및 물리 삭제 제거 | Course | - | COURSE-06a, COURSE-07a, COURSE-07b |
+| COURSE-11 | 🟢 | CourseController principal instanceof 검사 추가 (크로스커팅 정합화) | Course | - | COURSE-09 |
 
 세부 내용은 `.claude/task/task-course.md` 참고.
 
@@ -98,6 +99,10 @@
   - `member/controller/MemberSelfController.java` → 사용자 확인(2026-07-14)으로 지금 함께 수정(MEMBER-04 완료 무효화 절차 진행 중).
   - `subscription/presentation/SubscriptionController.java`(2곳) → 사용자 확인(2026-07-14)으로 지금 수정하지 않음. Subscription BC는 이미 전면 재설계가 확정되어 있으므로(TASK.md 상단 BC 로드맵 참고), SUB-01~04 착수 시 이 결함도 함께 반영할 것.
   - **후속(2026-07-16)**: SUB-04 완료 근거를 재확인한 결과 이 결함이 실제로는 반영되지 않고 남아있음(수동 생성/재발급 엔드포인트 제거만 수행됨, 남은 1곳은 `cancel()`). SUB-01~07 전체 완료 후 SUB-08로 구체화하여 정식 작업으로 등록(위 요약표 참고).
+
+### 크로스커팅 발견 사항 처리 결과 (2026-07-16, Course)
+
+- **`CourseController`의 `(CustomUserPrincipal) authentication.getPrincipal()` 무조건 캐스팅**: SUB-08(`SubscriptionController`) 완료 직후, 사용자 요청으로 동일 패턴이 있는 다른 BC를 확인하는 과정에서 발견. 11개 메서드가 개별 인라인으로 캐스팅해 실패 시 `ClassCastException`(500)이 발생할 수 있었음. SUB-08과 동일하게 `instanceof` 검사 + 도메인 예외로 방어하도록 COURSE-11로 등록.
 
 ### Member 관련 🟠 대기 항목 (타 BC 계획 시 등록 예정, 지금 임의 생성하지 않음)
 

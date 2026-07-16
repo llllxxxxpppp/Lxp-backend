@@ -322,6 +322,34 @@
 
 ---
 
+## [COURSE-11] CourseController principal instanceof 검사 추가 (크로스커팅 정합화)
+
+**설명**: `CourseController`의 11개 메서드(`createCourse`, `updateCourse`, `publishCourse`, `unpublishCourse`, `deleteCourse`, `publishLecture`, `unpublishLecture`, `deleteLecture`, `publishMission`, `unpublishMission`, `deleteMission`)가 각각 `(CustomUserPrincipal) authentication.getPrincipal()`을 무조건 캐스팅하는데, principal이 `CustomUserPrincipal`이 아닌 경우 `ClassCastException`(500)이 노출된다. `SubscriptionController`(SUB-08)에서 동일 패턴을 `instanceof` 검사 + 도메인 예외로 방어한 선례를 따른다. 11개 메서드가 완전히 동일한 캐스팅 로직을 반복하므로 이번 작업에서 private 헬퍼로 추출한다(`MemberSelfController.resolveMemberId`와 동일한 기존 컨벤션).
+
+**완료 기준**:
+- 신규 private 헬퍼(예: `resolvePrincipal(Authentication)`)를 추가해 `authentication.getPrincipal() instanceof CustomUserPrincipal principal` 패턴 매칭으로 타입을 확인하고, 아니면 `CourseException("인증 정보가 올바르지 않습니다.")`를 던지고, 맞으면 `principal`을 반환한다.
+- 위 11개 메서드 전부가 기존 인라인 캐스팅 대신 이 헬퍼를 사용하도록 교체한다(로직·시그니처·기존 `isAdmin(principal)` 호출부는 변경 없음).
+- `CourseException`은 이미 `CourseExceptionHandler`가 400으로 매핑하므로 신규 예외 핸들러는 필요 없음.
+- `CourseControllerTest`에 신규 테스트 1개 추가: principal이 `CustomUserPrincipal`이 아닌 인증 객체로 대표 엔드포인트(예: `createCourse`) 요청 시 400 + 메시지 + `verifyNoInteractions(courseService)` 검증(헬퍼가 단일 지점이므로 11개 엔드포인트 전부를 개별 검증할 필요는 없음).
+- `@RejectSuspendedInstructor` 등 기존 AOP·소유권 검증(COURSE-08b/COURSE-09) 로직에는 영향이 없어야 한다(헬퍼 추출은 캐스팅 방식만 바꾸는 것이므로 이 메서드들이 호출되는 순서·조건은 변경하지 않음).
+
+**관련 규칙 위치**: 신규 비즈니스 규칙 아님 — 근거는 `.claude/TASK.md` "크로스커팅 발견 사항 처리 결과 (2026-07-16)" 및 선례(`subscription/presentation/SubscriptionController.java`, SUB-08).
+
+**대상 파일**: `course/controller/CourseController.java`, `src/test/java/com/lcs/lxp/course/controller/CourseControllerTest.java`
+
+**의존성**: COURSE-09(🟢 완료, 현재 `CourseController` 시그니처 기준)
+
+**진행 기록**: (미착수) — 2026-07-16 SUB-08 완료 직후 사용자 요청으로 동일 패턴을 Member/Course BC에도 확인, COURSE-11로 구체화.
+
+**완료 (2026-07-16)**:
+- 테스트: `CourseControllerTest.java`에 `genericUserAuthentication(long)` 헬퍼(`CustomUserPrincipal`이 아닌 일반 `User`(UserDetails) 기반 인증 객체 생성) 및 신규 테스트 `givenNonCustomUserPrincipalAuthentication_whenCreateCourse_thenReturns400`(대표 엔드포인트 `createCourse`, 400 + 메시지 + `verifyNoInteractions(courseService)` 검증) 추가. 헬퍼가 단일 지점이므로 11개 엔드포인트 전부를 개별 검증하지 않음(계획대로). 기존 테스트는 무변경.
+- 구현: 신규 private 헬퍼 `resolvePrincipal(Authentication)`(`authentication.getPrincipal() instanceof CustomUserPrincipal principal` 패턴 매칭, 실패 시 `CourseException("인증 정보가 올바르지 않습니다.")` 던짐) 추가. 11개 메서드(`createCourse`, `updateCourse`, `publishCourse`, `unpublishCourse`, `deleteCourse`, `publishLecture`, `unpublishLecture`, `deleteLecture`, `publishMission`, `unpublishMission`, `deleteMission`) 전부의 인라인 캐스팅을 `resolvePrincipal(authentication)` 호출로 교체. `isAdmin(principal)` 및 나머지 로직(서비스 호출 인자, 응답 상태)은 변경 없음. `addLecture`/`addMission`/`reorderItems`(인증 미사용)는 대상 제외. `CourseException`은 기존 `CourseExceptionHandler`가 이미 400으로 매핑하므로 신규 핸들러 추가 없음.
+- 리뷰: 승인(PASS, blocker/major/minor 없음). 11개 호출부 전부 정확히 교체됨을 `git diff`로 확인, 서비스 호출 인자·`@RejectSuspendedInstructor`(COURSE-08b)/소유권 검증(COURSE-09) 등 다른 로직 회귀 없음 확인.
+- 테스트 실행: `./gradlew check` BUILD SUCCESSFUL, 전체 테스트 통과, PMD 위반 0건, 커버리지 92.81%.
+- 완료 근거: 리뷰 승인 + 테스트 전체 통과 + PMD 0건 + 사용자 확인(2026-07-16).
+
+---
+
 ## 범위 제외 항목 (참고용, 작업 아님)
 
 - 강좌 신고 기능(`COURSE.md` "구독자는 강좌를 신고할 수 있다"): `.claude/DO_NOT_IMPLEMENT.md`에 의해 명시적으로 구현 대상 아님.

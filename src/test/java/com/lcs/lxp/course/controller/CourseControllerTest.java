@@ -26,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -96,6 +97,19 @@ class CourseControllerTest {
                 "",
                 List.of(new SimpleGrantedAuthority("ROLE_ADMIN")),
                 false);
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+    }
+
+    /**
+     * COURSE-11: 컨트롤러가 {@code authentication.getPrincipal()}을 {@link CustomUserPrincipal}로
+     * 무조건 캐스팅하는 경우를 방어하는지 검증하기 위해, 일반 스프링 시큐리티 {@link User}(UserDetails)
+     * 기반의 principal을 담은 인증 객체를 제공한다.
+     */
+    private Authentication genericUserAuthentication(long userId) {
+        User principal = new User(
+                "user" + userId + "@test.com",
+                "password",
+                List.of(new SimpleGrantedAuthority("ROLE_INSTRUCTOR")));
         return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
     }
 
@@ -266,6 +280,22 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
 
         verify(courseService).createCourse(anyLong(), anyString(), anyString(), nullable(String.class));
+    }
+
+    @Test
+    @DisplayName("CustomUserPrincipal이 아닌 인증 객체로 강좌 생성 요청을 하면 400을 반환한다")
+    void givenNonCustomUserPrincipalAuthentication_whenCreateCourse_thenReturns400() throws Exception {
+        CreateCourseRequest request = new CreateCourseRequest("강좌 제목", "강좌 설명", null);
+
+        mockMvc.perform(post("/api/courses")
+                        .with(authentication(genericUserAuthentication(1L)))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("인증 정보가 올바르지 않습니다."));
+
+        verifyNoInteractions(courseService);
     }
 
     @Test

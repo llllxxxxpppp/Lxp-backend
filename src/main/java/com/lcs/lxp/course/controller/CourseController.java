@@ -8,6 +8,7 @@ import com.lcs.lxp.course.dto.request.UpdateCourseRequest;
 import com.lcs.lxp.course.dto.response.CourseDetailResponse;
 import com.lcs.lxp.course.dto.response.CoursePageResponse;
 import com.lcs.lxp.course.dto.response.CourseSummaryResponse;
+import com.lcs.lxp.course.exception.CourseException;
 import com.lcs.lxp.course.service.CourseService;
 import com.lcs.lxp.security.principal.CustomUserPrincipal;
 
@@ -61,7 +62,7 @@ public class CourseController {
     public ResponseEntity<Void> createCourse(
             @RequestBody @Valid CreateCourseRequest request,
             Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         Long instructorId = principal.getUserId();
         courseService.createCourse(instructorId, request.title(), request.description(), request.thumbnailUrl());
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -72,7 +73,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @RequestBody @Valid UpdateCourseRequest request,
             Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         courseService.updateCourse(
                 courseId, request.title(), request.description(), request.thumbnailUrl(),
                 principal.getUserId(), isAdmin(principal));
@@ -81,21 +82,21 @@ public class CourseController {
 
     @PostMapping("/{courseId}/publish")
     public ResponseEntity<Void> publishCourse(@PathVariable Long courseId, Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         courseService.publishCourse(courseId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{courseId}/unpublish")
     public ResponseEntity<Void> unpublishCourse(@PathVariable Long courseId, Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         courseService.unpublishCourse(courseId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{courseId}")
     public ResponseEntity<Void> deleteCourse(@PathVariable Long courseId, Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         courseService.deleteCourse(courseId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
@@ -113,7 +114,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @PathVariable Long lectureId,
             Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         courseService.publishLecture(courseId, lectureId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
@@ -123,7 +124,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @PathVariable Long lectureId,
             Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         courseService.unpublishLecture(courseId, lectureId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
@@ -133,7 +134,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @PathVariable Long lectureId,
             Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         courseService.deleteLecture(courseId, lectureId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
@@ -151,7 +152,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @PathVariable Long missionId,
             Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         courseService.publishMission(courseId, missionId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
@@ -161,7 +162,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @PathVariable Long missionId,
             Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         courseService.unpublishMission(courseId, missionId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
@@ -171,7 +172,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @PathVariable Long missionId,
             Authentication authentication) {
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        CustomUserPrincipal principal = resolvePrincipal(authentication);
         courseService.deleteMission(courseId, missionId, principal.getUserId(), isAdmin(principal));
         return ResponseEntity.ok().build();
     }
@@ -188,6 +189,13 @@ public class CourseController {
                 .toList();
         courseService.reorderItems(courseId, itemTypes, itemIds);
         return ResponseEntity.ok().build();
+    }
+
+    private CustomUserPrincipal resolvePrincipal(Authentication authentication) {
+        if (authentication.getPrincipal() instanceof CustomUserPrincipal principal) {
+            return principal;
+        }
+        throw new CourseException("인증 정보가 올바르지 않습니다.");
     }
 
     private boolean isAdmin(CustomUserPrincipal principal) {
